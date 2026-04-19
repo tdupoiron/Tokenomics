@@ -1,6 +1,6 @@
 cask "tokenomics" do
-  version "2.7.4"
-  sha256 "be097e3e69379f189cab3f2ae531b55cd038f8aeb376684f9fb9d3db7ac01b7b"
+  version "2.7.5"
+  sha256 "62c51e80c393a222915b6f3ffeef68c44750b8b20744b1c7245700c4d4250031"
 
   url "https://github.com/rob-stout/Tokenomics/releases/download/v#{version}/Tokenomics-#{version}.dmg"
   name "Tokenomics"
