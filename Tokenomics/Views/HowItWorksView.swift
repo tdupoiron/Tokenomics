@@ -3,6 +3,8 @@ import SwiftUI
 /// Reference screen explaining how Tokenomics works and what UI elements mean.
 /// Displayed inline within the popover, replacing the main content.
 struct HowItWorksView: View {
+    @Environment(\.tokenomicsTextSize) private var textSize
+
     let onDismiss: () -> Void
 
     var body: some View {
@@ -14,7 +16,7 @@ struct HowItWorksView: View {
                         Image(systemName: "chevron.left")
                         Text("Back")
                     }
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .padding(.vertical, 4)
                     .padding(.trailing, 8)
                     .contentShape(Rectangle())
@@ -25,7 +27,7 @@ struct HowItWorksView: View {
                 Spacer()
 
                 Text("How It Works")
-                    .font(.headline)
+                    .scaledFont(.headline)
                     .fontWeight(.medium)
 
                 Spacer()
@@ -35,7 +37,7 @@ struct HowItWorksView: View {
                     Image(systemName: "chevron.left")
                     Text("Back")
                 }
-                .font(.caption)
+                .scaledFont(.caption)
                 .hidden()
             }
             .padding(.horizontal, 16)
@@ -140,7 +142,7 @@ struct HowItWorksView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.subheadline)
+            .scaledFont(.subheadline)
             .fontWeight(.semibold)
     }
 
@@ -152,17 +154,17 @@ struct HowItWorksView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.caption)
+                .scaledFont(.caption)
                 .foregroundStyle(color)
-                .frame(width: 16, alignment: .center)
+                .frame(width: 16 * textSize.iconScale, alignment: .center)
                 .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .fontWeight(.medium)
                 Text(description)
-                    .font(.caption2)
+                    .scaledFont(.caption2)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

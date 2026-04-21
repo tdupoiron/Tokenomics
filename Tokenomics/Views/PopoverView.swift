@@ -8,6 +8,8 @@ struct PopoverView: View {
 
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var showingGeminiPlanSetup = false
+    @AppStorage("textSize") private var textSizeRaw: String = TextSize.compact.rawValue
+    private var textSize: TextSize { TextSize(rawValue: textSizeRaw) ?? .compact }
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -22,6 +24,8 @@ struct PopoverView: View {
                 AIConnectionsView(viewModel: viewModel)
             } else if viewModel.showNotifications {
                 NotificationsView(viewModel: viewModel)
+            } else if viewModel.showTextSize {
+                TextSizeView(onDismiss: { viewModel.showTextSize = false })
             } else if viewModel.showSettings {
                 settingsView
             } else if !viewModel.hasCompletedOnboarding {
@@ -33,6 +37,7 @@ struct PopoverView: View {
         .animation(.easeInOut(duration: 0.2), value: viewModel.showSettings)
         .animation(.easeInOut(duration: 0.2), value: viewModel.showAIConnections)
         .animation(.easeInOut(duration: 0.2), value: viewModel.showNotifications)
+        .environment(\.tokenomicsTextSize, textSize)
         .background {
             // Hidden buttons to register keyboard shortcuts within the popover
             VStack {
@@ -111,7 +116,7 @@ struct PopoverView: View {
     private var header: some View {
         HStack {
             Text("Tokenomics")
-                .font(.headline)
+                .scaledFont(.headline)
                 .fontWeight(.medium)
 
             Spacer()
@@ -127,11 +132,11 @@ struct PopoverView: View {
             }
 
             ShareLink(
-                item: URL(string: "https://github.com/rob-stout/Tokenomics")!,
+                item: URL(string: "https://robrstout.com/work/tokenomics/")!,
                 message: Text("I'm tracking my AI coding tool usage with Tokenomics!")
             ) {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -202,10 +207,10 @@ struct PopoverView: View {
                 Divider()
                 HStack {
                     Text("Credits Balance")
-                        .font(.subheadline)
+                        .scaledFont(.subheadline)
                     Spacer()
                     Text("$\(balance)")
-                        .font(.subheadline)
+                        .scaledFont(.subheadline)
                         .fontWeight(.semibold)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
@@ -220,10 +225,10 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Extra Usage")
-                    .font(.subheadline)
+                    .scaledFont(.subheadline)
                 Spacer()
                 Text("\(extra.usedCreditsFormatted) / \(extra.monthlyLimitFormatted)")
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .monospacedDigit()
                     .foregroundStyle((extra.utilization ?? 0) >= 100 ? .red : .secondary)
             }
@@ -251,11 +256,11 @@ struct PopoverView: View {
     private func authExpiredView(for provider: ProviderId) -> some View {
         VStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.title2)
+                .scaledFont(.title2)
                 .foregroundStyle(.orange)
 
             Text("\(provider.displayName) authentication expired")
-                .font(.caption)
+                .scaledFont(.caption)
                 .fontWeight(.semibold)
 
             if provider.usesPATAuth {
@@ -266,7 +271,7 @@ struct PopoverView: View {
                 .controlSize(.small)
 
                 Text("Update your token in AI Connections.")
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             } else if provider.hasAutoAuth {
@@ -277,7 +282,7 @@ struct PopoverView: View {
                 .controlSize(.small)
 
                 Text("Sign in to \(provider.displayName),\nthen click Refresh.")
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             } else {
@@ -288,7 +293,7 @@ struct PopoverView: View {
                 .controlSize(.small)
 
                 Text("Opens Terminal to reconnect.\nTokenomics will detect it automatically.")
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -301,15 +306,15 @@ struct PopoverView: View {
     private func comingSoonView(for provider: ProviderId) -> some View {
         VStack(spacing: 8) {
             Image(systemName: "chart.bar.doc.horizontal")
-                .font(.title2)
+                .scaledFont(.title2)
                 .foregroundStyle(.secondary)
 
             Text("Usage tracking coming soon")
-                .font(.caption)
+                .scaledFont(.caption)
                 .fontWeight(.semibold)
 
             Text("\(provider.displayName) doesn't expose rate-limit data yet. We'll add support as soon as it's available.")
-                .font(.caption)
+                .scaledFont(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -322,7 +327,7 @@ struct PopoverView: View {
         VStack(spacing: 8) {
             ProgressView()
             Text("Loading usage data...")
-                .font(.caption)
+                .scaledFont(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(24)
@@ -331,11 +336,11 @@ struct PopoverView: View {
     private func errorView(_ error: AppError) -> some View {
         VStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.title2)
+                .scaledFont(.title2)
                 .foregroundStyle(.orange)
 
             Text(error.localizedDescription)
-                .font(.caption)
+                .scaledFont(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
@@ -359,7 +364,7 @@ struct PopoverView: View {
                         Image(systemName: "chevron.left")
                         Text("Back")
                     }
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .padding(.vertical, 4)
                     .padding(.trailing, 8)
                     .contentShape(Rectangle())
@@ -370,7 +375,7 @@ struct PopoverView: View {
                 Spacer()
 
                 Text("Settings")
-                    .font(.headline)
+                    .scaledFont(.headline)
                     .fontWeight(.medium)
 
                 Spacer()
@@ -380,7 +385,7 @@ struct PopoverView: View {
                     Image(systemName: "chevron.left")
                     Text("Back")
                 }
-                .font(.caption)
+                .scaledFont(.caption)
                 .hidden()
             }
             .padding(.horizontal, 16)
@@ -424,6 +429,16 @@ struct PopoverView: View {
                     viewModel.showNotifications = true
                 }
 
+                Divider().padding(.horizontal, 16)
+
+                settingsNavRow(
+                    icon: "textformat.size",
+                    label: "Text Size",
+                    detail: textSize.displayName
+                ) {
+                    viewModel.showTextSize = true
+                }
+
                 // ── Learn ──
                 sectionLabel("Learn")
 
@@ -447,11 +462,11 @@ struct PopoverView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "ladybug")
-                            .font(.caption)
-                            .frame(width: 16, height: 16)
+                            .scaledFont(.caption)
+                            .frame(width: 16 * textSize.iconScale, height: 16 * textSize.iconScale)
                             .foregroundStyle(.secondary)
                         Text("Report Bugs / Feedback")
-                            .font(.caption)
+                            .scaledFont(.caption)
                         Spacer()
                     }
                     .contentShape(Rectangle())
@@ -470,11 +485,11 @@ struct PopoverView: View {
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.caption)
-                            .frame(width: 16, height: 16)
+                            .scaledFont(.caption)
+                            .frame(width: 16 * textSize.iconScale, height: 16 * textSize.iconScale)
                             .foregroundStyle(.secondary)
                         Text(updaterService.updateAvailable ? "Update Available" : "Check for Updates")
-                            .font(.caption)
+                            .scaledFont(.caption)
                         if updaterService.updateAvailable {
                             Circle()
                                 .fill(.blue)
@@ -482,7 +497,7 @@ struct PopoverView: View {
                         }
                         Spacer()
                         Text("v\(appVersion)")
-                            .font(.caption)
+                            .scaledFont(.caption)
                             .foregroundStyle(.quaternary)
                     }
                     .contentShape(Rectangle())
@@ -499,11 +514,11 @@ struct PopoverView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "power")
-                            .font(.caption)
-                            .frame(width: 16, height: 16)
+                            .scaledFont(.caption)
+                            .frame(width: 16 * textSize.iconScale, height: 16 * textSize.iconScale)
                             .foregroundStyle(.secondary)
                         Text("Quit Tokenomics")
-                            .font(.caption)
+                            .scaledFont(.caption)
                         Spacer()
                     }
                     .contentShape(Rectangle())
@@ -528,13 +543,14 @@ struct PopoverView: View {
     }
 
     private func settingsRow(icon: String, label: String, @ViewBuilder trailing: () -> some View) -> some View {
-        HStack(spacing: 8) {
+        let iconSide = 16 * textSize.iconScale
+        return HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.caption)
-                .frame(width: 16, height: 16)
+                .scaledFont(.caption)
+                .frame(width: iconSide, height: iconSide)
                 .foregroundStyle(.secondary)
             Text(label)
-                .font(.caption)
+                .scaledFont(.caption)
             Spacer()
             trailing()
         }
@@ -543,22 +559,23 @@ struct PopoverView: View {
     }
 
     private func settingsNavRow(icon: String, label: String, detail: String? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let iconSide = 16 * textSize.iconScale
+        return Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.caption)
-                    .frame(width: 16, height: 16)
+                    .scaledFont(.caption)
+                    .frame(width: iconSide, height: iconSide)
                     .foregroundStyle(.secondary)
                 Text(label)
-                    .font(.caption)
+                    .scaledFont(.caption)
                 Spacer()
                 if let detail {
                     Text(detail)
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Image(systemName: "chevron.right")
-                    .font(.caption2)
+                    .scaledFont(.caption2)
                     .foregroundStyle(.quaternary)
             }
             .contentShape(Rectangle())

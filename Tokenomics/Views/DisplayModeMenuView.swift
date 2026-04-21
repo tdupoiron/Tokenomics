@@ -4,6 +4,8 @@ import SwiftUI
 struct DisplayModeMenuView: View {
     @ObservedObject var viewModel: UsageViewModel
 
+    @Environment(\.tokenomicsTextSize) private var textSize
+
     var body: some View {
         Menu {
             // Header
@@ -23,7 +25,7 @@ struct DisplayModeMenuView: View {
 
             // Pin a specific provider
             Label("Pin Tracker:", systemImage: "pin")
-                .font(.caption2)
+                .scaledFont(.caption2)
 
             ForEach(viewModel.visibleProviders) { provider in
                 Button(action: { viewModel.togglePin(for: provider) }) {
@@ -38,14 +40,14 @@ struct DisplayModeMenuView: View {
         } label: {
             HStack(spacing: 2) {
                 Image(systemName: viewModel.isSmartMode ? "circle.circle" : "pin.fill")
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .imageScale(.small)
                     .foregroundStyle(.secondary)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 6, weight: .semibold))
+                    .font(.system(size: 6 * textSize.iconScale, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
-            .frame(width: 28, height: 28)
+            .frame(width: 28 * textSize.iconScale, height: 28 * textSize.iconScale)
             .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)

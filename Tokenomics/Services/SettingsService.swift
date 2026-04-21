@@ -1,4 +1,118 @@
 import Foundation
+import SwiftUI
+
+/// User-selectable text size for the popover.
+/// Maps to Apple's DynamicTypeSize ladder so semantic fonts scale correctly,
+/// and exposes a matching icon scale + popover width so chrome that reads as
+/// "text-adjacent" (provider icons, settings icons) grows with the type.
+enum TextSize: String, CaseIterable, Codable {
+    case compact
+    case medium
+    case large
+
+    var displayName: String {
+        switch self {
+        case .compact: return "Compact"
+        case .medium: return "Medium"
+        case .large: return "Large"
+        }
+    }
+
+    /// Multiplier for icons that should grow alongside text
+    /// (provider tab icons, settings-row glyphs).
+    /// Structural chrome (padding, progress bar height) does NOT use this.
+    var iconScale: CGFloat {
+        switch self {
+        case .compact: return 1.0
+        case .medium:  return 1.15
+        case .large:   return 1.30
+        }
+    }
+
+    /// The popover width for this text size, given how many provider tabs are visible.
+    /// At 4+ providers the tab bar needs extra room for icon-only mode.
+    func popoverWidth(providerCount: Int) -> CGFloat {
+        let base: CGFloat = providerCount >= 4 ? 400 : 360
+        switch self {
+        case .compact: return base
+        case .medium:  return base + 40   // 360→400, 400→440
+        case .large:   return base + 90   // 360→450, 400→490
+        }
+    }
+}
+
+// MARK: - SwiftUI Environment
+
+private struct TokenomicsTextSizeKey: EnvironmentKey {
+    static let defaultValue: TextSize = .compact
+}
+
+extension EnvironmentValues {
+    /// Current popover text size, propagated from PopoverView's root to all
+    /// children that need to scale icons alongside text.
+    var tokenomicsTextSize: TextSize {
+        get { self[TokenomicsTextSizeKey.self] }
+        set { self[TokenomicsTextSizeKey.self] = newValue }
+    }
+}
+
+// MARK: - Scaled Font
+
+/// Applies an explicit point size to text based on the current TextSize.
+/// Exists because SwiftUI's `.dynamicTypeSize` barely moves semantic fonts on
+/// macOS (xxLarge ≈ +1pt on body text) — not enough scaling for users who
+/// actually need bigger text. This modifier gives us real +2pt / +4pt bumps.
+///
+/// Base sizes match macOS SF Pro defaults for each TextStyle. Weight defaults
+/// match the style's implicit weight (.headline is semibold, the rest regular).
+/// Callers can still chain `.fontWeight(...)` to override.
+struct ScaledFontModifier: ViewModifier {
+    let style: Font.TextStyle
+    @Environment(\.tokenomicsTextSize) private var textSize
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: scaledSize, weight: defaultWeight))
+    }
+
+    private var baseSize: CGFloat {
+        switch style {
+        case .caption2:    return 10
+        case .caption:     return 10
+        case .footnote:    return 10
+        case .subheadline: return 11
+        case .callout:     return 12
+        case .body:        return 13
+        case .headline:    return 13
+        case .title3:      return 15
+        case .title2:      return 17
+        case .title:       return 22
+        case .largeTitle:  return 26
+        @unknown default:  return 13
+        }
+    }
+
+    private var defaultWeight: Font.Weight {
+        style == .headline ? .semibold : .regular
+    }
+
+    private var scaledSize: CGFloat {
+        let addition: CGFloat
+        switch textSize {
+        case .compact: addition = 0
+        case .medium:  addition = 2
+        case .large:   addition = 4
+        }
+        return baseSize + addition
+    }
+}
+
+extension View {
+    /// Drop-in replacement for `.font(.caption)` etc. that scales with the
+    /// popover text size preference.
+    func scaledFont(_ style: Font.TextStyle) -> some View {
+        modifier(ScaledFontModifier(style: style))
+    }
+}
 
 /// Persists user preferences for multi-provider configuration
 enum SettingsService {
@@ -10,6 +124,19 @@ enum SettingsService {
     static var hasCompletedOnboarding: Bool {
         get { defaults.bool(forKey: "hasCompletedOnboarding") }
         set { defaults.set(newValue, forKey: "hasCompletedOnboarding") }
+    }
+
+    // MARK: - Text Size
+
+    /// User-selected popover text size. Defaults to .compact so existing users
+    /// see no change on upgrade — they can opt into Medium/Large if they want.
+    static var textSize: TextSize {
+        get {
+            defaults.string(forKey: "textSize").flatMap { TextSize(rawValue: $0) } ?? .compact
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: "textSize")
+        }
     }
 
     // MARK: - Pinned Providers (Menu Bar Display)
