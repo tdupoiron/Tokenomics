@@ -25,6 +25,22 @@
             </item>
         -->
         <item>
+            <title>2.8.0</title>
+            <pubDate>Tue, 21 Apr 2026 15:42:16 -0600</pubDate>
+            <sparkle:version>41</sparkle:version>
+            <sparkle:shortVersionString>2.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li><b>How It Works polish</b> — custom icons throughout, plus a new Tips section (hold &#8984; and drag to reorder tabs) and a FAQ covering when the pace dot hides and how Smart mode picks the menu bar provider.</li>
+                    <li><b>Pace dot visibility</b> — the pace dot now appears consistently across the widget, popover, and menu bar, including at 0% usage, so your remaining runway is always visible.</li>
+                    <li><b>Updated privacy policy</b> — documents every supported provider, where each credential lives on your Mac, and the full list of API endpoints Tokenomics calls. No new data collection, just better disclosure.</li>
+                    <li><b>Refreshed legal disclaimer</b> — self-maintaining phrasing as the provider list grows.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://github.com/rob-stout/Tokenomics/releases/download/v2.8.0/Tokenomics-2.8.0.dmg" length="7068309" type="application/octet-stream" sparkle:edSignature="O7ag7gw9jQ7A0Wvp6dFLMAAQpQzOm8oj0owdnEfnnZgJ/kTUncGLGAFKkyPHe8bB2liU3QEfnrlrN4zD5VRJCg=="/>
+        </item>
+        <item>
             <title>2.7.7</title>
             <pubDate>Tue, 21 Apr 2026 09:47:08 -0600</pubDate>
             <sparkle:version>40</sparkle:version>
@@ -39,14 +55,6 @@
             <sparkle:shortVersionString>2.7.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/rob-stout/Tokenomics/releases/download/v2.7.6/Tokenomics-2.7.6.dmg" length="7005114" type="application/octet-stream" sparkle:edSignature="lKbOHdxO21GR4Dmfsf3/Ls4tSSKGzqgKKEDo9dJ1UCJzsKF9EEJkCbc3kYugdp/KCS6vRrVf3Q2v7P9efSOeDw=="/>
-        </item>
-        <item>
-            <title>2.7.5</title>
-            <pubDate>Sun, 19 Apr 2026 11:41:31 -0600</pubDate>
-            <sparkle:version>38</sparkle:version>
-            <sparkle:shortVersionString>2.7.5</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/rob-stout/Tokenomics/releases/download/v2.7.5/Tokenomics-2.7.5.dmg" length="7003493" type="application/octet-stream" sparkle:edSignature="mTjTQQYB5hmpZdUfXGJDYXHpYNuKTS2OaobJjwRxEvEhadLUiLy/J7qjPdTuEdtaLpWWzJlTSA7BZniiXxOnCw=="/>
         </item>
         <item>
             <title>2.7</title>
