@@ -199,7 +199,7 @@ step "Creating DMG: $DMG_NAME"
 create-dmg \
     --volname "Tokenomics" \
     --volicon "$PROJECT_ROOT/Tokenomics/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512.png" \
-    --background "$PROJECT_ROOT/Tokenomics/Resources/dmg-background.png" \
+    --background "$PROJECT_ROOT/Tokenomics/Resources/App Installer/dmg-background.png" \
     --window-pos 200 120 \
     --window-size 540 380 \
     --icon-size 128 \
