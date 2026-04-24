@@ -188,8 +188,31 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
         }
     }
 
+    /// Whether this provider's install uses npm (vs. brew/cask)
+    private var installUsesNpm: Bool {
+        switch self {
+        case .claude, .codex, .gemini: return true
+        default: return false
+        }
+    }
+
+    /// Direct download URL shown when neither brew nor npm is available.
+    /// Cursor can always be downloaded directly; Node is the prerequisite for
+    /// npm-based providers; `gh` has its own macOS pkg.
+    private var manualDownloadURL: String {
+        switch self {
+        case .cursor: return "https://www.cursor.com/downloads"
+        case .copilot: return "https://github.com/cli/cli/releases/latest"
+        case .claude, .codex, .gemini: return "https://nodejs.org/en/download"
+        default: return ""
+        }
+    }
+
     #if os(macOS)
-    /// Opens Terminal and runs the install command, reusing the frontmost window if possible
+    /// Opens Terminal and runs the install command, reusing the frontmost window if possible.
+    /// Auto-installs Homebrew (for cask providers) or Node.js via the official pkg installer
+    /// (for npm providers) when neither tool is present — so the user isn't dead-ended by a
+    /// cryptic "brew not found" error.
     func openInstallInTerminal() {
         guard !installCommand.isEmpty else { return }
 
@@ -198,18 +221,43 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
         [ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc"; \
         export PATH="$HOME/.claude/bin:$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
         """
-        let installScript = """
-        if command -v npm &>/dev/null; then \
-        echo 'Installing \(displayName)...'; echo ''; \(installCommand); \
-        elif command -v brew &>/dev/null; then \
-        echo 'npm not found — installing Node.js via Homebrew first...'; \
-        brew install node && \(installCommand); \
-        else \
-        echo 'Error: npm and brew not found.'; \
-        echo 'Install Node.js from https://nodejs.org first, then run:'; \
-        echo '  \(installCommand)'; \
-        fi
-        """
+
+        let installScript: String
+        if installUsesNpm {
+            // npm providers: try npm, fall back to brew-installed node, fall back to
+            // the official Node.js pkg installer so users without brew aren't stuck.
+            installScript = """
+            if command -v npm >/dev/null 2>&1; then \
+            echo 'Installing \(displayName)...'; echo ''; \(installCommand); \
+            elif command -v brew >/dev/null 2>&1; then \
+            echo 'npm not found — installing Node.js via Homebrew first...'; \
+            brew install node && \(installCommand); \
+            else \
+            echo 'Node.js is required to install \(displayName).'; \
+            echo 'Opening the official Node.js installer page — download and run it,'; \
+            echo 'then return to Tokenomics and click Install again.'; \
+            open '\(manualDownloadURL)'; \
+            fi
+            """
+        } else {
+            // brew/cask providers: offer a one-command Homebrew install, then fall
+            // back to the provider's native installer if the user declines.
+            installScript = """
+            if command -v brew >/dev/null 2>&1; then \
+            echo 'Installing \(displayName)...'; echo ''; \(installCommand); \
+            else \
+            echo 'Homebrew is not installed.'; \
+            echo ''; \
+            echo 'Option 1 — install Homebrew (recommended, one command):'; \
+            echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'; \
+            echo ''; \
+            echo 'Option 2 — download \(displayName) directly:'; \
+            echo '  \(manualDownloadURL)'; \
+            open '\(manualDownloadURL)'; \
+            fi
+            """
+        }
+
         let fullCommand = "\(shellSetup); \(installScript)"
 
         let appleScript = """

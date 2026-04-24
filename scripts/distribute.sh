@@ -194,11 +194,44 @@ step "Creating DMG: $DMG_NAME"
 # Remove any existing DMG at the output path
 [[ -f "$DMG_OUTPUT" ]] && rm "$DMG_OUTPUT"
 
+# Build a proper .icns volume icon from the built app's AppIcon. Feeding
+# create-dmg a bundled .icns (vs. a raw PNG) gives the mounted DMG volume a
+# correctly-scaled multi-resolution icon in Finder.
+#
+# Known cosmetic issue: the .app icon shown inside the DMG installer window
+# will still look flat because the source PNGs in AppIcon.appiconset are flat
+# squares — macOS does NOT auto-apply a squircle to "mac" idiom assets. To
+# fix that, regenerate AppIcon.appiconset from a source that bakes in the
+# macOS squircle + shadow (e.g. Bakery, iconutil + masked source PNGs, or
+# Apple's Icon Composer).
+VOLICON_ICNS="$BUILD_DIR/VolumeIcon.icns"
+BUILT_ICNS="$APP_PATH/Contents/Resources/AppIcon.icns"
+if [[ -f "$BUILT_ICNS" ]]; then
+    cp "$BUILT_ICNS" "$VOLICON_ICNS"
+else
+    # Fallback: synthesize an .icns from the appiconset PNGs.
+    ICONSET_TMP="$BUILD_DIR/VolumeIcon.iconset"
+    rm -rf "$ICONSET_TMP"
+    mkdir -p "$ICONSET_TMP"
+    APPICONSET="$PROJECT_ROOT/Tokenomics/Resources/Assets.xcassets/AppIcon.appiconset"
+    cp "$APPICONSET/icon_16x16.png"       "$ICONSET_TMP/icon_16x16.png"
+    cp "$APPICONSET/icon_16x16@2x.png"    "$ICONSET_TMP/icon_16x16@2x.png"
+    cp "$APPICONSET/icon_32x32.png"       "$ICONSET_TMP/icon_32x32.png"
+    cp "$APPICONSET/icon_32x32@2x.png"    "$ICONSET_TMP/icon_32x32@2x.png"
+    cp "$APPICONSET/icon_128x128.png"     "$ICONSET_TMP/icon_128x128.png"
+    cp "$APPICONSET/icon_128x128@2x.png"  "$ICONSET_TMP/icon_128x128@2x.png"
+    cp "$APPICONSET/icon_256x256.png"     "$ICONSET_TMP/icon_256x256.png"
+    cp "$APPICONSET/icon_256x256@2x.png"  "$ICONSET_TMP/icon_256x256@2x.png"
+    cp "$APPICONSET/icon_512x512.png"     "$ICONSET_TMP/icon_512x512.png"
+    cp "$APPICONSET/icon_512x512@2x.png"  "$ICONSET_TMP/icon_512x512@2x.png"
+    iconutil -c icns "$ICONSET_TMP" -o "$VOLICON_ICNS"
+fi
+
 # create-dmg returns exit code 2 when "disk image done" but Finder layout
 # AppleScript had minor issues — this is cosmetic, not a real failure.
 create-dmg \
     --volname "Tokenomics" \
-    --volicon "$PROJECT_ROOT/Tokenomics/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512.png" \
+    --volicon "$VOLICON_ICNS" \
     --background "$PROJECT_ROOT/Tokenomics/Resources/App Installer/dmg-background.png" \
     --window-pos 200 120 \
     --window-size 540 380 \

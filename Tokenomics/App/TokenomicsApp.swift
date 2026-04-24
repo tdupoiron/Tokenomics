@@ -84,9 +84,12 @@ struct MenuBarLabel: View {
                     .foregroundStyle(Color.red)
 
             case .unauthenticated:
-                Image(systemName: "person.crop.circle")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.secondary)
+                Image(nsImage: MenuBarRingsRenderer.image(
+                    fiveHourFraction: 0,
+                    sevenDayFraction: 0,
+                    fiveHourPace: 0,
+                    sevenDayPace: 0
+                ))
 
             default:
                 ringLabel

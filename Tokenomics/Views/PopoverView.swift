@@ -84,14 +84,16 @@ struct PopoverView: View {
             Divider()
         }
 
-        // Content for selected provider (keyed on tab to reset animation state)
-        if let state = viewModel.currentProviderState {
+        // Content for selected provider (keyed on tab to reset animation state).
+        // When nothing is connected, skip straight to LoginView — otherwise the
+        // not-installed provider state falls through to an infinite spinner.
+        if !viewModel.isAuthenticated {
+            LoginView(viewModel: viewModel)
+        } else if let state = viewModel.currentProviderState {
             providerContent(state)
                 .id(viewModel.selectedTab)
-        } else if !viewModel.isAuthenticated {
-            LoginView(viewModel: viewModel)
         } else {
-            loadingView
+            LoginView(viewModel: viewModel)
         }
 
         Divider()
@@ -148,7 +150,11 @@ struct PopoverView: View {
     @ViewBuilder
     private func providerContent(_ state: ProviderState) -> some View {
         let currentTab = viewModel.selectedTab ?? .claude
-        if state.isLoading && state.usage == nil {
+        if case .notInstalled = state.connection {
+            notConnectedView(for: currentTab, connection: state.connection)
+        } else if case .installedNoAuth = state.connection {
+            notConnectedView(for: currentTab, connection: state.connection)
+        } else if state.isLoading && state.usage == nil {
             loadingView
         } else if case .authExpired = state.connection {
             authExpiredView(for: currentTab)
@@ -297,6 +303,42 @@ struct PopoverView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+        }
+        .padding(24)
+    }
+
+    // MARK: - Not Connected
+
+    /// Shown for a tab whose provider isn't installed or signed in. Surfaces
+    /// the install/sign-in CTA instead of an infinite spinner.
+    private func notConnectedView(for provider: ProviderId, connection: ProviderConnectionState) -> some View {
+        let isInstalled: Bool
+        if case .installedNoAuth = connection { isInstalled = true } else { isInstalled = false }
+
+        return VStack(spacing: 8) {
+            Image(systemName: "link.badge.plus")
+                .scaledFont(.title2)
+                .foregroundStyle(.secondary)
+
+            Text(isInstalled
+                 ? "\(provider.displayName) isn't signed in"
+                 : "\(provider.displayName) isn't set up yet")
+                .scaledFont(.caption)
+                .fontWeight(.semibold)
+                .multilineTextAlignment(.center)
+
+            Text(isInstalled
+                 ? "Sign in so Tokenomics can read your usage."
+                 : "Install the CLI or paste a token to start tracking usage.")
+                .scaledFont(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Set Up \(provider.tabLabel)") {
+                viewModel.showAIConnections = true
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
         }
         .padding(24)
     }
