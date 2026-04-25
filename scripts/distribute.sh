@@ -235,11 +235,11 @@ create-dmg \
     --background "$PROJECT_ROOT/Tokenomics/Resources/App Installer/dmg-background.png" \
     --window-pos 200 120 \
     --window-size 540 380 \
-    --icon-size 128 \
+    --icon-size 96 \
     --text-size 14 \
-    --icon "Tokenomics.app" 80 80 \
+    --icon "Tokenomics.app" 87 137 \
     --hide-extension "Tokenomics.app" \
-    --app-drop-link 412 80 \
+    --app-drop-link 360 136 \
     --no-internet-enable \
     "$DMG_OUTPUT" \
     "$APP_PATH" || true
