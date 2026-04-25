@@ -239,7 +239,7 @@ create-dmg \
     --text-size 14 \
     --icon "Tokenomics.app" 80 80 \
     --hide-extension "Tokenomics.app" \
-    --app-drop-link 332 80 \
+    --app-drop-link 412 80 \
     --no-internet-enable \
     "$DMG_OUTPUT" \
     "$APP_PATH" || true
