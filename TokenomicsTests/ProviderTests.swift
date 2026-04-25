@@ -7,8 +7,8 @@ final class ProviderTests: XCTestCase {
 
     // MARK: - Display Labels
 
-    func testDisplayName_claude_isClaude() {
-        XCTAssertEqual(ProviderId.claude.displayName, "Claude Code")
+    func testDisplayName_claude_isAnthropic() {
+        XCTAssertEqual(ProviderId.claude.displayName, "Anthropic")
     }
 
     func testDisplayName_copilot_isGitHubCopilot() {
@@ -20,6 +20,58 @@ final class ProviderTests: XCTestCase {
         let labels = ProviderId.allCases.map(\.shortLabel)
         XCTAssertEqual(labels.count, Set(labels).count,
             "Each provider must have a unique short label for menu bar display")
+    }
+
+    // MARK: - Platform Categorization
+
+    func testCategory_anthropic_isPlatforms() {
+        XCTAssertEqual(ProviderId.claude.category, .platforms,
+            "Anthropic must sit in Platforms — its usage pool covers chat, cowork, and code")
+    }
+
+    func testCategory_openAI_isPlatforms() {
+        XCTAssertEqual(ProviderId.codex.category, .platforms)
+    }
+
+    func testCategory_google_isPlatforms() {
+        XCTAssertEqual(ProviderId.gemini.category, .platforms)
+    }
+
+    func testCategory_copilot_isCodingTools() {
+        XCTAssertEqual(ProviderId.copilot.category, .codingTools)
+    }
+
+    func testCategory_cursor_isCodingTools() {
+        XCTAssertEqual(ProviderId.cursor.category, .codingTools)
+    }
+
+    // MARK: - Shared Pool Descriptions
+
+    func testSharedPool_anthropic_listsClaudeProducts() {
+        let desc = ProviderId.claude.sharedPoolDescription
+        XCTAssertNotNil(desc, "Anthropic platform must surface its shared-pool products")
+        XCTAssertTrue(desc!.contains("Claude Chat"))
+        XCTAssertTrue(desc!.contains("Claude Cowork"))
+        XCTAssertTrue(desc!.contains("Claude Code"))
+    }
+
+    func testSharedPool_openAI_listsKeyProducts() {
+        let desc = ProviderId.codex.sharedPoolDescription
+        XCTAssertNotNil(desc)
+        XCTAssertTrue(desc!.contains("ChatGPT"))
+        XCTAssertTrue(desc!.contains("Codex"))
+    }
+
+    func testSharedPool_google_listsKeyProducts() {
+        let desc = ProviderId.gemini.sharedPoolDescription
+        XCTAssertNotNil(desc)
+        XCTAssertTrue(desc!.contains("Gemini"))
+    }
+
+    func testSharedPool_singleProductProviders_areNil() {
+        // Single-product providers have no pool subtitle
+        XCTAssertNil(ProviderId.copilot.sharedPoolDescription)
+        XCTAssertNil(ProviderId.cursor.sharedPoolDescription)
     }
 
     // MARK: - Connection State

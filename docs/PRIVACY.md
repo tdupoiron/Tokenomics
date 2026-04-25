@@ -1,7 +1,9 @@
 # Tokenomics Privacy Policy
 
 **Effective date:** April 21, 2026
-**Author:** Rob Stout (rob@robstout.design)
+**Owned by:** Acorn Designs, LLC
+**Created by:** Rob Stout
+**Contact:** hello@trytokenomics.com
 
 ---
 
@@ -57,4 +59,4 @@ If this policy changes, the updated version will be published in this repository
 
 ## Contact
 
-Questions about this policy: rob@robstout.design
+Questions about this policy: hello@trytokenomics.com

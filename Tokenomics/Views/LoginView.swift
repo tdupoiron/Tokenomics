@@ -38,6 +38,12 @@ struct LoginView: View {
             .buttonStyle(.plain)
             .scaledFont(.caption)
             .foregroundStyle(.secondary)
+
+            if let setupURL = URL(string: "https://trytokenomics.com/setup.html") {
+                Link("View setup guide →", destination: setupURL)
+                    .scaledFont(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding()
         .accessibilityElement(children: .contain)

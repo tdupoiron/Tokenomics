@@ -339,6 +339,12 @@ struct PopoverView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
+
+            if let setupURL = URL(string: "https://trytokenomics.com/setup.html\(provider.setupGuideAnchor)") {
+                Link("View setup guide →", destination: setupURL)
+                    .scaledFont(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(24)
     }

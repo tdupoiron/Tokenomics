@@ -8,10 +8,10 @@ import AppKit
 /// Supported AI providers across coding, image, video, and audio categories
 enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     // Platforms (shared billing pools)
+    case claude
     case codex
     case gemini
     // Coding Tools
-    case claude
     case copilot
     case cursor
     // Image Generation
@@ -28,7 +28,7 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .claude: return "Claude Code"
+        case .claude: return "Anthropic"
         case .copilot: return "GitHub Copilot"
         case .cursor: return "Cursor"
         case .codex: return "OpenAI"
@@ -299,8 +299,8 @@ extension ProviderId {
 
     var category: ProviderCategory {
         switch self {
-        case .codex, .gemini, .stableDiffusion: return .platforms
-        case .claude, .copilot, .cursor: return .codingTools
+        case .claude, .codex, .gemini, .stableDiffusion: return .platforms
+        case .copilot, .cursor: return .codingTools
         case .midjourney: return .imageGeneration
         case .runway: return .videoGeneration
         case .elevenlabs, .suno, .udio: return .musicAudioVoice
@@ -318,10 +318,24 @@ extension ProviderId {
     /// Subtitle shown under platform providers describing what's in their shared billing pool
     var sharedPoolDescription: String? {
         switch self {
-        case .codex: return "Codex CLI · DALL-E · Sora"
-        case .gemini: return "Gemini CLI · Nano Banana 2 · Veo"
+        case .claude: return "Claude Chat · Claude Cowork · Claude Code"
+        case .codex: return "ChatGPT · Codex · DALL-E · Sora"
+        case .gemini: return "Gemini · Nano Banana · Veo"
         case .stableDiffusion: return "Stable Diffusion · Stable Image · Stable Video"
         default: return nil
+        }
+    }
+
+    /// Anchor fragment that deep-links to the matching section of trytokenomics.com/setup.html
+    var setupGuideAnchor: String {
+        switch self {
+        case .claude: return "#anthropic"
+        case .codex: return "#openai"
+        case .gemini: return "#google"
+        case .copilot: return "#copilot"
+        case .cursor: return "#cursor"
+        case .stableDiffusion, .runway, .elevenlabs: return "#api-key"
+        case .midjourney, .suno, .udio: return ""
         }
     }
 
