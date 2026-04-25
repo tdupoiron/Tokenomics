@@ -227,19 +227,40 @@ else
     iconutil -c icns "$ICONSET_TMP" -o "$VOLICON_ICNS"
 fi
 
+# Background DPI fix. Finder computes display points as `pixels * 72 / dpi`.
+# Our 1080×760 source PNG is at 72 dpi, so Finder would render it at
+# 1080×760 *points* — twice the window's 540pt width. Stamping it to 144 dpi
+# makes Finder render the same pixel data at 540×380 points (retina-sharp).
+SRC_BG="$PROJECT_ROOT/Tokenomics/Resources/App Installer/dmg-background.png"
+BG_144DPI="$BUILD_DIR/dmg-background-144dpi.png"
+sips -s dpiHeight 144 -s dpiWidth 144 "$SRC_BG" --out "$BG_144DPI" >/dev/null
+
 # create-dmg returns exit code 2 when "disk image done" but Finder layout
 # AppleScript had minor issues — this is cosmetic, not a real failure.
+#
+# Coordinate system notes (per create-dmg issue #20 + AppleScript template):
+# - `--icon X Y` is the icon's CENTER (not top-left), in points (1x).
+# - `--window-size W H` is the OUTER window bounds; the title bar (~28pt)
+#   eats into the content area where the background image is drawn.
+# - The background renders anchored to the content-area top-left at 1:1
+#   (after the DPI fix above), so icon positions align with the design.
+# - The bottom ~28pt is consumed by chrome — window height bumped to 408 to
+#   give the 380pt design region full visibility.
+#
+# Figma → create-dmg conversion (1080×760 design ÷ 2 → 540×380 points):
+#   Tokenomics:    Figma TL (173, 273) size 192×192 → center (134, 184) pt
+#   Apps folder:   Figma TL (698, 270) size 238×198 → center (408, 184) pt
 create-dmg \
     --volname "Tokenomics" \
     --volicon "$VOLICON_ICNS" \
-    --background "$PROJECT_ROOT/Tokenomics/Resources/App Installer/dmg-background.png" \
+    --background "$BG_144DPI" \
     --window-pos 200 120 \
-    --window-size 540 380 \
+    --window-size 540 408 \
     --icon-size 96 \
     --text-size 14 \
-    --icon "Tokenomics.app" 87 137 \
+    --icon "Tokenomics.app" 134 184 \
     --hide-extension "Tokenomics.app" \
-    --app-drop-link 360 136 \
+    --app-drop-link 408 184 \
     --no-internet-enable \
     "$DMG_OUTPUT" \
     "$APP_PATH" || true

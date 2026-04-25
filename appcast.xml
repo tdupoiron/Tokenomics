@@ -25,6 +25,14 @@
             </item>
         -->
         <item>
+            <title>2.8.4</title>
+            <pubDate>Sat, 25 Apr 2026 13:18:40 -0600</pubDate>
+            <sparkle:version>44</sparkle:version>
+            <sparkle:shortVersionString>2.8.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/rob-stout/Tokenomics/releases/download/v2.8.4/Tokenomics-2.8.4.dmg" length="6997235" type="application/octet-stream" sparkle:edSignature="i8hLAxCOUB5bIOcHHMn39ss7U7bkhW4fmAUoCo7duWf3MSNJu46gy57iAsTmU/vbIzN1FVUykDOyDfK7wUOtCQ=="/>
+        </item>
+        <item>
             <title>2.8.2</title>
             <pubDate>Sat, 25 Apr 2026 13:09:14 -0600</pubDate>
             <sparkle:version>43</sparkle:version>
@@ -39,22 +47,6 @@
             <sparkle:shortVersionString>2.8.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/rob-stout/Tokenomics/releases/download/v2.8.1/Tokenomics-2.8.1.dmg" length="7061584" type="application/octet-stream" sparkle:edSignature="kHrCXhiSEqJhZzSd/7ibNgT8CjJwysdFXkzfual1vmebuVUm5OlH96jPRi5+U5/CAC1ew594ivTklpsNJMcICQ=="/>
-        </item>
-        <item>
-            <title>2.8.0</title>
-            <pubDate>Tue, 21 Apr 2026 15:42:16 -0600</pubDate>
-            <sparkle:version>41</sparkle:version>
-            <sparkle:shortVersionString>2.8.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-                <ul>
-                    <li><b>How It Works polish</b> — custom icons throughout, plus a new Tips section (hold &#8984; and drag to reorder tabs) and a FAQ covering when the pace dot hides and how Smart mode picks the menu bar provider.</li>
-                    <li><b>Pace dot visibility</b> — the pace dot now appears consistently across the widget, popover, and menu bar, including at 0% usage, so your remaining runway is always visible.</li>
-                    <li><b>Updated privacy policy</b> — documents every supported provider, where each credential lives on your Mac, and the full list of API endpoints Tokenomics calls. No new data collection, just better disclosure.</li>
-                    <li><b>Refreshed legal disclaimer</b> — self-maintaining phrasing as the provider list grows.</li>
-                </ul>
-            ]]></description>
-            <enclosure url="https://github.com/rob-stout/Tokenomics/releases/download/v2.8.0/Tokenomics-2.8.0.dmg" length="7068309" type="application/octet-stream" sparkle:edSignature="O7ag7gw9jQ7A0Wvp6dFLMAAQpQzOm8oj0owdnEfnnZgJ/kTUncGLGAFKkyPHe8bB2liU3QEfnrlrN4zD5VRJCg=="/>
         </item>
         <item>
             <title>2.7</title>
