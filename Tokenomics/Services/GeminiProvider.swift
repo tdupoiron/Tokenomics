@@ -172,7 +172,10 @@ actor GeminiProvider: UsageProvider {
         let paths = [
             "/opt/homebrew/bin/gemini",
             "/usr/local/bin/gemini",
-            "\(NSHomeDirectory())/.local/bin/gemini"
+            "\(NSHomeDirectory())/.local/bin/gemini",
+            // Also check the Tokenomics-private embedded install location used by
+            // EmbeddedCLIRunner — so detection succeeds after a hidden npm install.
+            EmbeddedCLIRunner.embeddedBinDir.appendingPathComponent("gemini").path
         ]
         return paths.contains { fm.fileExists(atPath: $0) }
     }

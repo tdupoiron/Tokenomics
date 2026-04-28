@@ -43,7 +43,12 @@ final class ConnectorViewModel: ObservableObject {
 
     /// Hard ceiling on how long we'll wait without any state change before
     /// surfacing a `.detectionTimeout` error.
-    private static let stuckThreshold: TimeInterval = 90
+    ///
+    /// 180s covers the worst case: npm install (~15s on fast network, ~60s on slow)
+    /// followed by OAuth handoff where the user takes a minute to sign in.
+    /// The threshold is state-independent for simplicity — the connector's
+    /// `cancel()` path handles explicit user bail-outs before the timeout fires.
+    private static let stuckThreshold: TimeInterval = 180
 
     // MARK: - Init
 

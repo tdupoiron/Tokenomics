@@ -167,7 +167,10 @@ actor CodexProvider: UsageProvider {
         let commonPaths = [
             "/usr/local/bin/codex",
             "\(NSHomeDirectory())/.local/bin/codex",
-            "/opt/homebrew/bin/codex"
+            "/opt/homebrew/bin/codex",
+            // Also check the Tokenomics-private embedded install location used by
+            // EmbeddedCLIRunner — so detection succeeds after a hidden npm install.
+            EmbeddedCLIRunner.embeddedBinDir.appendingPathComponent("codex").path
         ]
         return commonPaths.contains { FileManager.default.fileExists(atPath: $0) }
     }
