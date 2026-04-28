@@ -47,9 +47,15 @@ Providers support: reordering (drag), show/hide visibility, per-provider poll in
 
 ## Commands
 ```bash
-xcodegen generate        # Regenerate Xcode project from project.yml (run AFTER version bumps)
-./scripts/distribute.sh  # Build, sign, notarize, create DMG, upload to GitHub Releases
+xcodegen generate              # Regenerate Xcode project from project.yml (run AFTER version bumps)
+./scripts/distribute.sh        # Build, sign, notarize, create DMG, upload to GitHub Releases
+git config core.hooksPath .githooks  # ONE-TIME per clone: enable auto-xcodegen on branch switch
 ```
+
+The `.githooks/post-checkout` hook auto-runs `xcodegen generate` after branch
+switches when `project.yml` or any `.swift` file differs between the two
+branches. Avoids "Build input files cannot be found" errors when bouncing
+between branches with different source trees.
 
 ## Release Process
 1. Bump version in `project.yml` (both targets: main app + widgets)

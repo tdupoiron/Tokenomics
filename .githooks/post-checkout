@@ -1,0 +1,41 @@
+#!/bin/sh
+# Auto-regenerate Xcode project after branch switches when source tree differs.
+#
+# Why: branches with different .swift files or project.yml produce different
+# .xcodeproj contents. Without this, builds fail with "Build input files cannot
+# be found" until xcodegen is run manually.
+#
+# git post-checkout passes: prev_head, new_head, flag (1 = branch switch, 0 = file checkout)
+
+prev_head="$1"
+new_head="$2"
+flag="$3"
+
+# Only run on branch switches
+[ "$flag" = "1" ] || exit 0
+
+# Skip if heads are identical (e.g., re-checkout of same branch)
+[ "$prev_head" = "$new_head" ] && exit 0
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+# Repo must use xcodegen
+[ -f project.yml ] || exit 0
+
+# Skip if neither project.yml nor any .swift file differs between heads —
+# the existing .xcodeproj is still valid, no work needed.
+if git diff --quiet "$prev_head" "$new_head" -- project.yml '*.swift' 2>/dev/null; then
+    exit 0
+fi
+
+if ! command -v xcodegen >/dev/null 2>&1; then
+    echo "post-checkout: xcodegen not in PATH — skipping Xcode project regen" >&2
+    exit 0
+fi
+
+echo "→ Source tree changed between branches; regenerating Xcode project..."
+if xcodegen generate >/dev/null 2>&1; then
+    echo "✓ Xcode project regenerated"
+else
+    echo "✗ xcodegen failed — run \`xcodegen generate\` manually to see errors" >&2
+fi
