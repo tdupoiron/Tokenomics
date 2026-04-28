@@ -90,7 +90,14 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     }
 
     #if os(macOS)
-    /// Opens Terminal and runs the login/auth command, reusing the frontmost window if possible
+    /// Opens Terminal and runs the login/auth command, reusing the frontmost window if possible.
+    ///
+    /// - Note: Deprecated in v2.9. The ConnectorView in-app guided flow is now the
+    ///   canonical connect path for all providers. This method is kept for one release
+    ///   as a fallback in case any code path I missed depends on it. Callers in
+    ///   PopoverView.authExpiredView are the remaining users — those should be migrated
+    ///   to open a ConnectorView sheet in a follow-up.
+    @available(*, deprecated, message: "Replaced by ConnectorView's in-app flow. Use openConnector(for:) from AIConnectionsView or ConnectorContainer.")
     func openLoginInTerminal() {
         guard !loginCommand.isEmpty else { return }
 
@@ -213,6 +220,10 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     /// Auto-installs Homebrew (for cask providers) or Node.js via the official pkg installer
     /// (for npm providers) when neither tool is present — so the user isn't dead-ended by a
     /// cryptic "brew not found" error.
+    ///
+    /// - Note: Deprecated in v2.9. EmbeddedCLIRunner (via ConnectorView) is now the canonical
+    ///   install path — no Terminal required. This method is kept for one release as a fallback.
+    @available(*, deprecated, message: "Replaced by EmbeddedCLIRunner + ConnectorView. Use ConnectorContainer or AIConnectionsView.openConnector(for:).")
     func openInstallInTerminal() {
         guard !installCommand.isEmpty else { return }
 

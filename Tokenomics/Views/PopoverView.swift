@@ -11,10 +11,6 @@ struct PopoverView: View {
     @AppStorage("textSize") private var textSizeRaw: String = TextSize.compact.rawValue
     private var textSize: TextSize { TextSize(rawValue: textSizeRaw) ?? .compact }
 
-    /// Feature flag for the new connector-based onboarding flow. Off by default
-    /// while the flow is being validated. Enable for testing via:
-    ///   `defaults write com.robstout.tokenomics newOnboardingEnabled -bool true`
-    @AppStorage("newOnboardingEnabled") private var newOnboardingEnabled: Bool = false
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -34,11 +30,10 @@ struct PopoverView: View {
             } else if viewModel.showSettings {
                 settingsView
             } else if !viewModel.hasCompletedOnboarding {
-                if newOnboardingEnabled {
-                    ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
-                } else {
-                    OnboardingView(viewModel: viewModel)
-                }
+                // New connector-based onboarding is now the default flow.
+                // OnboardingView (the legacy single-screen list) is kept in the
+                // project for one release as a reference but is no longer reachable.
+                ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
             } else {
                 mainContent
             }
@@ -278,40 +273,19 @@ struct PopoverView: View {
                 .scaledFont(.caption)
                 .fontWeight(.semibold)
 
-            if provider.usesPATAuth {
-                Button("Reconnect") {
-                    viewModel.showAIConnections = true
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Text("Update your token in AI Connections.")
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else if provider.hasAutoAuth {
-                Button("Open \(provider.tabLabel)") {
-                    provider.openLoginInTerminal()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Text("Sign in to \(provider.displayName),\nthen click Refresh.")
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else {
-                Button("Sign In") {
-                    provider.openLoginInTerminal()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Text("Opens Terminal to reconnect.\nTokenomics will detect it automatically.")
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+            // Route all auth-expired states through Settings → AI Connections,
+            // where the ConnectorView sheet handles the reconnect flow without Terminal.
+            Button("Reconnect") {
+                viewModel.showSettings = true
+                viewModel.showAIConnections = true
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+            Text("Tap to reconnect in **Settings → Connections**.\nTokenomics will detect it automatically.")
+                .scaledFont(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(24)
     }

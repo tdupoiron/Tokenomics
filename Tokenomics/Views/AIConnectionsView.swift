@@ -1,11 +1,16 @@
 import SwiftUI
 
-/// Settings sub-screen showing all providers grouped by category with connect/disconnect controls
+/// Settings sub-screen showing all providers grouped by category with connect/disconnect controls.
+///
+/// Connect / Re-connect taps for CLI-based providers (Claude, Codex, Gemini, Cursor)
+/// now push a `ConnectorView` sheet — the same chrome as the onboarding flow —
+/// so there is one source of truth for the connection experience.
 struct AIConnectionsView: View {
     @ObservedObject var viewModel: UsageViewModel
     @State private var geminiPlan: GeminiPlan = SettingsService.geminiPlan ?? .free
     @State private var patText = ""
     @State private var apiKeyText = ""
+    @State private var activeConnectorVM: ConnectorViewModel?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.tokenomicsTextSize) private var textSize
 
@@ -48,6 +53,71 @@ struct AIConnectionsView: View {
         }
         .sheet(item: $viewModel.apiKeyEntryProvider) { _ in
             apiKeyEntrySheet
+        }
+        // ConnectorView sheet — shown when the user taps Connect/Reconnect on a
+        // CLI provider. Reuses the same chrome as the onboarding connector flow.
+        .sheet(item: $activeConnectorVM) { connectorVM in
+            ConnectorView(viewModel: connectorVM)
+                .frame(width: 320, height: 340)
+                .onDisappear {
+                    // Re-detect after the sheet dismisses so the row reflects the
+                    // new connection state immediately.
+                    viewModel.redetectProviders()
+                }
+        }
+    }
+
+    // MARK: - Connector sheet helper
+
+    /// Opens a ConnectorView sheet for the given provider.
+    private func openConnector(for provider: ProviderId) {
+        let connector = makeConnector(for: provider)
+        activeConnectorVM = ConnectorViewModel(
+            connector: connector,
+            onOutcome: { _ in
+                // "Add another" and "I'm all set" both dismiss the sheet;
+                // in Settings context, both outcomes are equivalent (close).
+                activeConnectorVM = nil
+            }
+        )
+    }
+
+    /// Factory that mirrors ConnectorContainer.makeConnector(for:) so Settings
+    /// and onboarding use the same connector implementations.
+    private func makeConnector(for provider: ProviderId) -> any ProviderConnector {
+        switch provider {
+        case .cursor:
+            return CursorConnector()
+        case .copilot:
+            return CopilotConnector(onRequestAuth: { [viewModel] in
+                viewModel.copilotPATEntryRequested = true
+            })
+        case .claude:
+            return ClaudeConnector()
+        case .codex:
+            return CodexConnector()
+        case .gemini:
+            return GeminiConnector()
+        case .stableDiffusion:
+            return APIKeyConnector(
+                providerId: .stableDiffusion,
+                provider: StableDiffusionProvider(),
+                onRequestKey: { [viewModel] in viewModel.apiKeyEntryProvider = .stableDiffusion }
+            )
+        case .runway:
+            return APIKeyConnector(
+                providerId: .runway,
+                provider: RunwayProvider(),
+                onRequestKey: { [viewModel] in viewModel.apiKeyEntryProvider = .runway }
+            )
+        case .elevenlabs:
+            return APIKeyConnector(
+                providerId: .elevenlabs,
+                provider: ElevenLabsProvider(),
+                onRequestKey: { [viewModel] in viewModel.apiKeyEntryProvider = .elevenlabs }
+            )
+        case .midjourney, .suno, .udio:
+            return ClaudeConnector() // Defensive — these rows are gated by hasAPI=false
         }
     }
 
@@ -226,29 +296,26 @@ struct AIConnectionsView: View {
         } else if provider.usesAPIKeyAuth {
             smallActionButton("Connect") { viewModel.apiKeyEntryProvider = provider }
         } else if provider == .copilot {
-            // Copilot has its own PAT sheet
+            // Copilot uses the ConnectorView sheet — same as all other providers.
+            // The connector internally surfaces the PAT sheet via onRequestAuth.
             switch connection {
             case .notInstalled, .installedNoAuth:
-                smallActionButton("Connect") { viewModel.copilotPATEntryRequested = true }
-                    .help("Enter a GitHub Personal Access Token")
+                smallActionButton("Connect") { openConnector(for: provider) }
             case .authExpired:
-                smallActionButton("Reconnect") { viewModel.copilotPATEntryRequested = true }
-                    .help("Enter a new GitHub Personal Access Token")
+                smallActionButton("Reconnect") { openConnector(for: provider) }
             default:
                 EmptyView()
             }
         } else {
-            // CLI-based providers
+            // CLI-based providers (Claude, Codex, Gemini, Cursor) — all use
+            // ConnectorView so the user never sees a Terminal window.
             switch connection {
             case .notInstalled:
-                smallActionButton("Install") { provider.openInstallInTerminal() }
-                    .help("Opens Terminal to install \(provider.displayName)")
+                smallActionButton("Connect") { openConnector(for: provider) }
             case .installedNoAuth:
-                smallActionButton("Sign In") { provider.openLoginInTerminal() }
-                    .help("Opens Terminal to sign in")
+                smallActionButton("Sign In") { openConnector(for: provider) }
             case .authExpired:
-                smallActionButton("Fix") { provider.openLoginInTerminal() }
-                    .help("Opens Terminal to reconnect")
+                smallActionButton("Reconnect") { openConnector(for: provider) }
             default:
                 EmptyView()
             }

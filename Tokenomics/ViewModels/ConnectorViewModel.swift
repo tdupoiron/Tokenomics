@@ -6,7 +6,9 @@ import os
 /// to the main actor for SwiftUI, and manages post-connection chaining
 /// (Add another provider / I'm all set).
 @MainActor
-final class ConnectorViewModel: ObservableObject {
+final class ConnectorViewModel: ObservableObject, Identifiable {
+    /// Stable identifier so SwiftUI's `.sheet(item:)` can uniquely track this VM.
+    let id = UUID()
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "ConnectorViewModel")
 
