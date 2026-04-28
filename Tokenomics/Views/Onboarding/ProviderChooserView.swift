@@ -123,8 +123,8 @@ struct ProviderChooserView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if let pool = provider.sharedPoolDescription, !isConnected {
-                        Text(pool)
+                    if let scope = provider.scopeDescription {
+                        Text(scope)
                             .scaledFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
