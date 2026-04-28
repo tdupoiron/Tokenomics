@@ -299,8 +299,8 @@ extension ProviderId {
 
     var category: ProviderCategory {
         switch self {
-        case .claude, .codex, .gemini, .stableDiffusion: return .platforms
-        case .copilot, .cursor: return .codingTools
+        case .claude, .stableDiffusion: return .platforms
+        case .copilot, .cursor, .codex, .gemini: return .codingTools
         case .midjourney: return .imageGeneration
         case .runway: return .videoGeneration
         case .elevenlabs, .suno, .udio: return .musicAudioVoice
@@ -315,12 +315,15 @@ extension ProviderId {
         }
     }
 
-    /// Subtitle shown under platform providers describing what's in their shared billing pool
-    var sharedPoolDescription: String? {
+    /// Subtitle clarifying what this row actually tracks. Anthropic's row covers the
+    /// full subscription pool; Codex/Gemini rows are scoped to their CLI tool only
+    /// (chat/image/video usage on those platforms is a separate quota with no public
+    /// read API).
+    var scopeDescription: String? {
         switch self {
-        case .claude: return "Claude Chat · Claude Cowork · Claude Code"
-        case .codex: return "ChatGPT · Codex · DALL-E · Sora"
-        case .gemini: return "Gemini · Nano Banana · Veo"
+        case .claude: return "Claude Chat · Cowork · Code"
+        case .codex: return "Codex CLI"
+        case .gemini: return "Gemini CLI"
         case .stableDiffusion: return "Stable Diffusion · Stable Image · Stable Video"
         default: return nil
         }

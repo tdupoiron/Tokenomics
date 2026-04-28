@@ -144,9 +144,8 @@ struct AIConnectionsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Shared pool description for platform providers
-                if let poolDesc = provider.sharedPoolDescription, !isConnected {
-                    Text(poolDesc)
+                if let scope = provider.scopeDescription {
+                    Text(scope)
                         .scaledFont(.caption2)
                         .foregroundStyle(.tertiary)
                 }
