@@ -27,3 +27,7 @@ Packages/
 
 # Internal planning — not meant to ship
 docs/roadmap.md
+
+# Embedded Node binary — downloaded by scripts/fetch-node.sh at build time.
+# Not committed because it's ~30 MB and reproducible from the download script.
+Tokenomics/Resources/embedded-node/

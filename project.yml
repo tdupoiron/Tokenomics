@@ -51,6 +51,56 @@ targets:
         product: Sparkle
       - target: TokenomicsWidgets
         embed: true
+    preBuildScripts:
+      - name: "Fetch embedded Node.js"
+        script: |
+          # Download Node.js LTS arm64 if not already present.
+          # Idempotent: skip when the right version is already installed.
+          set -euo pipefail
+          SCRIPT="${SRCROOT}/scripts/fetch-node.sh"
+          if [ -f "$SCRIPT" ]; then
+            bash "$SCRIPT"
+          else
+            echo "warning: fetch-node.sh not found — skipping embedded Node download."
+          fi
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+    postBuildScripts:
+      - name: "Copy and codesign embedded Node.js"
+        script: |
+          # Copy the embedded-node directory from the source tree into the built
+          # app bundle, then sign the node binary with the app's code-signing identity.
+          #
+          # Why a script instead of a resource reference in project.yml:
+          # The embedded-node directory is downloaded at pre-build time and lives in
+          # .gitignore. Xcode can't reference a directory that doesn't exist at
+          # project-generation time, so we copy it ourselves here.
+          set -euo pipefail
+
+          SRC="${SRCROOT}/Tokenomics/Resources/embedded-node"
+          DEST="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/embedded-node"
+          NODE_BIN="${DEST}/bin/node"
+
+          if [ ! -d "$SRC" ]; then
+            echo "note: embedded-node source directory not found at ${SRC} — skipping."
+            echo "      Run scripts/fetch-node.sh to download Node.js for Guided-mode connectors."
+            exit 0
+          fi
+
+          # Sync into the bundle (rsync is faster than rm+cp on incremental builds)
+          rsync -a --delete "$SRC/" "$DEST/"
+
+          # Sign the node Mach-O binary.
+          # --force: re-signs on incremental builds without needing to delete first.
+          # --options runtime: enables the hardened runtime required for Apple notarization.
+          if [ -f "$NODE_BIN" ]; then
+            codesign --force --options runtime \
+              --sign "${EXPANDED_CODE_SIGN_IDENTITY}" \
+              "$NODE_BIN"
+            echo "Signed embedded Node.js binary."
+          fi
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
     sources:
       - path: Tokenomics
         excludes:
