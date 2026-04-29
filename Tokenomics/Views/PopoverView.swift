@@ -275,16 +275,14 @@ struct PopoverView: View {
                 .scaledFont(.caption)
                 .fontWeight(.semibold)
 
-            // Route all auth-expired states through Settings → AI Connections,
-            // where the ConnectorView sheet handles the reconnect flow without Terminal.
             Button("Reconnect") {
-                viewModel.showSettings = true
-                viewModel.showAIConnections = true
+                OnboardingTarget.shared.preselected = provider
+                openWindow(id: "onboarding")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
 
-            Text("Tap to reconnect in **Settings → Connections**.\nTokenomics will detect it automatically.")
+            Text("Tap to walk through reconnecting.\nTokenomics will detect it automatically.")
                 .scaledFont(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -320,7 +318,8 @@ struct PopoverView: View {
                 .multilineTextAlignment(.center)
 
             Button("Set Up \(provider.tabLabel)") {
-                viewModel.showAIConnections = true
+                OnboardingTarget.shared.preselected = provider
+                openWindow(id: "onboarding")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
