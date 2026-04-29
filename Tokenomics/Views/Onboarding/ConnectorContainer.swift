@@ -136,20 +136,17 @@ struct ConnectorContainer: View {
         case .stableDiffusion:
             return APIKeyConnector(
                 providerId: .stableDiffusion,
-                provider: StableDiffusionProvider(),
-                onRequestKey: { [viewModel] in viewModel.apiKeyEntryProvider = .stableDiffusion }
+                provider: StableDiffusionProvider()
             )
         case .runway:
             return APIKeyConnector(
                 providerId: .runway,
-                provider: RunwayProvider(),
-                onRequestKey: { [viewModel] in viewModel.apiKeyEntryProvider = .runway }
+                provider: RunwayProvider()
             )
         case .elevenlabs:
             return APIKeyConnector(
                 providerId: .elevenlabs,
-                provider: ElevenLabsProvider(),
-                onRequestKey: { [viewModel] in viewModel.apiKeyEntryProvider = .elevenlabs }
+                provider: ElevenLabsProvider()
             )
         case .midjourney, .suno, .udio:
             // Coming Soon — picker disables these rows. Defensive fallback.

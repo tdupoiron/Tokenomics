@@ -29,7 +29,11 @@ struct ConfirmInstallStep: View {
     /// Label for the skip text-link. E.g. "Already have Homebrew? Skip this step".
     var skipLabel: String = "I already have this"
 
-    /// Called when the user taps "Continue" — the connector should start the install.
+    /// Label for the primary button. Defaults to "Continue" for install flows;
+    /// Pattern E (API key) uses "Open [Provider]" here.
+    var primaryLabel: String = "Continue"
+
+    /// Called when the user taps the primary button — the connector should proceed.
     var onContinue: () -> Void
 
     /// Called when the user taps the skip link — the connector should skip this step.
@@ -72,7 +76,7 @@ struct ConfirmInstallStep: View {
 
             // Action stack
             VStack(spacing: 8) {
-                Button("Continue", action: onContinue)
+                Button(primaryLabel, action: onContinue)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.regular)
 

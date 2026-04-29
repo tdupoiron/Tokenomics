@@ -116,6 +116,27 @@ struct ConnectorView: View {
                 onCheckNow: { viewModel.tappedRecheck() },
                 onBack: onBack
             )
+        case .openProviderSite(let headline, let body, let ctaLabel):
+            // Pattern E step 1 — reuses the confirm-screen chrome with provider-site framing.
+            // No command preview (it's a URL, not a shell command).
+            ConfirmInstallStep(
+                title: headline,
+                description: body,
+                commandPreview: nil,
+                footnote: "You only do this once — the key lives in macOS Keychain after this; Tokenomics never sees it again after you paste it.",
+                skipLabel: "Already have a key? Skip to paste",
+                primaryLabel: ctaLabel,
+                onContinue: { viewModel.tappedConfirmInstall() },
+                onSkip: { viewModel.tappedSkipInstall() }
+            )
+        case .pasteAPIKey(let providerName, let helpURL):
+            // Pattern E step 2 — secure paste field.
+            APIKeyPasteStep(
+                providerName: providerName,
+                helpURL: helpURL,
+                onSubmit: { key in viewModel.tappedSubmitAPIKey(key) },
+                onBack: onBack
+            )
         default:
             inProgressState
         }
@@ -180,6 +201,12 @@ struct ConnectorView: View {
         case .awaitingExternalAuth:
             // Full-screen replacement — subtext not shown.
             return ""
+        case .openProviderSite:
+            // Full-screen replacement — subtext not shown.
+            return ""
+        case .pasteAPIKey:
+            // Full-screen replacement — subtext not shown.
+            return ""
         case .connected:
             return "Connected."
         case .failed:
@@ -191,7 +218,8 @@ struct ConnectorView: View {
     private var statusPill: some View {
         switch viewModel.step {
         // These steps are full-screen replacements — no status pill.
-        case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth:
+        case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth,
+             .openProviderSite, .pasteAPIKey:
             EmptyView()
         case .needsAction:
             // No pill — primary CTA explains the next action.
@@ -258,7 +286,8 @@ struct ConnectorView: View {
         switch viewModel.step {
         // These steps own their own buttons — the action stack won't render for them
         // because `content` routes them to dedicated full-screen views.
-        case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth:
+        case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth,
+             .openProviderSite, .pasteAPIKey:
             return ""
         case .needsAction:
             return primaryCTA(for: viewModel.providerId)

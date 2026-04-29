@@ -96,6 +96,15 @@ enum ConnectorStep: Sendable, Equatable {
     /// for the credentials file to appear. Used for Window 5 of the Anthropic flow.
     case awaitingExternalAuth(headline: String, body: String)
 
+    /// Opens the provider's website so the user can get an API key (Pattern E step 1).
+    /// Rendered identically to `.confirmingInstall` — same confirm-screen chrome —
+    /// but with provider-site framing ("Tokenomics will open…") instead of install framing.
+    case openProviderSite(headline: String, body: String, ctaLabel: String)
+
+    /// Inline paste field for API key entry (Pattern E step 2).
+    /// Rendered by `APIKeyPasteStep` — secure field + inline Connect + generate link.
+    case pasteAPIKey(providerName: String, helpURL: URL?)
+
     /// Something went wrong; show recovery affordance.
     case failed(ConnectorError)
 }
@@ -230,6 +239,11 @@ protocol ProviderConnector: Actor {
     /// retry immediately sees the stale `failedState` and bounces back to `.failed`.
     func clearFailure() async
 
+    /// Submits an API key entered by the user on the `.pasteAPIKey` step.
+    /// The connector should save it to Keychain and return `true` on success.
+    /// Default no-op returns `false` — only `APIKeyConnector` implements this.
+    func submitAPIKey(_ key: String) async -> Bool
+
     /// Display labels for each of the four stepper segments shown across the top of
     /// every connector screen. Must be `nonisolated` so `ConnectorViewModel` (on
     /// MainActor) can read it without an `await`.
@@ -254,6 +268,9 @@ extension ProviderConnector {
 
     /// Default no-op — connectors that never set `failedState` don't need this.
     func clearFailure() async {}
+
+    /// Default no-op — only `APIKeyConnector` saves keys.
+    func submitAPIKey(_ key: String) async -> Bool { false }
 
     /// Default stepper labels — shared by most connectors (Pattern A, B, C).
     /// Pattern D (Cursor) and Pattern E (API keys) override this.

@@ -42,9 +42,15 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         case .detecting, .needsAction:
             return [Item(label: l1, state: a), Item(label: l2, state: u),
                     Item(label: l3, state: u), Item(label: l4, state: u)]
-        case .confirmingInstall, .installingDependency, .installing:
+        case .confirmingInstall, .installingDependency, .installing,
+             .openProviderSite:
+            // Step 2 active: installing tools / opening provider site for API key.
             return [Item(label: l1, state: c), Item(label: l2, state: a),
                     Item(label: l3, state: u), Item(label: l4, state: u)]
+        case .pasteAPIKey:
+            // Step 3 active: pasting the API key.
+            return [Item(label: l1, state: c), Item(label: l2, state: c),
+                    Item(label: l3, state: a), Item(label: l4, state: u)]
         case .previewExternalSteps, .awaitingOAuth, .awaitingUserConfirm, .awaitingExternalAuth:
             return [Item(label: l1, state: c), Item(label: l2, state: c),
                     Item(label: l3, state: a), Item(label: l4, state: u)]
@@ -192,6 +198,17 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         }
     }
 
+    /// Submits an API key from the `.pasteAPIKey` step.
+    /// Calls the connector's `submitAPIKey(_:)`, then forces a state refresh.
+    func tappedSubmitAPIKey(_ key: String) {
+        Task { [connector, weak self] in
+            _ = await connector.submitAPIKey(key)
+            guard let self else { return }
+            let current = await self.connector.currentStep()
+            self.step = current
+        }
+    }
+
     /// Tap on the recovery button when in `.failed` state.
     func tappedRecovery() {
         // Clear-failure must complete before polling resumes — otherwise the very
@@ -265,7 +282,7 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         switch step {
         case .waitingForExternalApp, .installing, .installingDependency,
              .awaitingOAuth, .awaitingUserConfirm, .confirmingInstall,
-             .awaitingExternalAuth:
+             .awaitingExternalAuth, .openProviderSite, .pasteAPIKey:
             return true
         default:
             return false
