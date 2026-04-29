@@ -262,21 +262,9 @@ struct AIConnectionsView: View {
             Text("Coming Soon")
                 .scaledFont(.caption2)
                 .foregroundStyle(.tertiary)
-        } else if provider.usesAPIKeyAuth {
-            smallActionButton("Connect") { viewModel.apiKeyEntryProvider = provider }
-        } else if provider == .copilot {
-            // Copilot keeps its existing PAT sheet — it doesn't use the CLI flow.
-            switch connection {
-            case .notInstalled, .installedNoAuth:
-                smallActionButton("Connect") { viewModel.copilotPATEntryRequested = true }
-            case .authExpired:
-                smallActionButton("Reconnect") { viewModel.copilotPATEntryRequested = true }
-            default:
-                EmptyView()
-            }
         } else {
-            // CLI-based providers (Claude, Codex, Gemini, Cursor) — open the guided
-            // onboarding window pre-routed to this provider's flow.
+            // All connectable providers open the guided onboarding window pre-routed
+            // to that provider's flow (CLI, API key, and OAuth alike).
             switch connection {
             case .notInstalled:
                 smallActionButton("Connect") {

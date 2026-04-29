@@ -124,9 +124,8 @@ struct ConnectorContainer: View {
         case .cursor:
             return CursorConnector()
         case .copilot:
-            return CopilotConnector(onRequestAuth: { [viewModel] in
-                viewModel.copilotPATEntryRequested = true
-            })
+            // Guided window: no PAT callback — flow uses gh auth login.
+            return CopilotConnector()
         case .claude:
             return ClaudeConnector()
         case .codex:
