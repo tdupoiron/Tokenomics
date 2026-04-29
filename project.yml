@@ -63,6 +63,8 @@ targets:
         buildPhase: resources
       - path: Tokenomics/Resources/Provider Icons/PNG/2x
         buildPhase: resources
+      - path: Tokenomics/Resources/Fonts
+        buildPhase: resources
       - path: TokenomicsWidgets/TokenomicsWidgetEntryView.swift
         type: file
       - path: TokenomicsWidgets/WidgetIntent.swift
@@ -84,6 +86,7 @@ targets:
         SUFeedURL: https://raw.githubusercontent.com/rob-stout/Tokenomics/main/appcast.xml
         SUPublicEDKey: iykVNFpnZUJU85Quy7sBGwDg9zJHawXUt2OX6FxdyjE=
         SUEnableAutomaticChecks: true
+        ATSApplicationFontsPath: ""
     entitlements:
       path: Tokenomics/Resources/Tokenomics.entitlements
       properties:
