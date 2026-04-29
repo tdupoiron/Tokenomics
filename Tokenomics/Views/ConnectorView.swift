@@ -127,6 +127,8 @@ struct ConnectorView: View {
             return "Waiting for \(viewModel.providerName) to install…"
         case .installing:
             return "Setting up — only happens once."
+        case .awaitingUserConfirm:
+            return "One quick confirmation before we continue."
         case .awaitingOAuth:
             return "Sign in in your browser to continue."
         case .connected:
@@ -148,6 +150,8 @@ struct ConnectorView: View {
             statusBadge(icon: .waiting, text: "Waiting for \(viewModel.providerName) — we'll detect it as soon as it's installed.")
         case .installing(let progress):
             installingPill(progress: progress)
+        case .awaitingUserConfirm(let message):
+            statusBadge(icon: .waiting, text: message)
         case .awaitingOAuth(let code):
             statusBadge(icon: .waiting, text: "Waiting for you to approve in your browser…")
             if let code, !code.isEmpty {
@@ -195,6 +199,7 @@ struct ConnectorView: View {
             .scaledFont(.caption)
             .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var primaryCTALabel: String {
@@ -207,6 +212,8 @@ struct ConnectorView: View {
             return "Check now"
         case .installing:
             return "Setting up…"
+        case .awaitingUserConfirm:
+            return "Open browser to sign in"
         case .awaitingOAuth:
             return "Reopen browser"
         case .connected:
@@ -287,6 +294,7 @@ struct ConnectorView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(maxWidth: .infinity)
             .padding(.top, 36)
         }
     }

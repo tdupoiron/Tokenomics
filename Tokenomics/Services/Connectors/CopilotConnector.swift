@@ -13,7 +13,7 @@ import os
 /// (Cloudflare Worker on trytokenomics.com) replaces this — kept as fallback.
 actor CopilotConnector: ProviderConnector {
     nonisolated let id: ProviderId = .copilot
-    nonisolated let mode: ConnectorMode = .quick
+    nonisolated let pipelineKind: ConnectorPipelineKind = .singleShot
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "CopilotConnector")
 

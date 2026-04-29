@@ -21,7 +21,7 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
 
     let providerId: ProviderId
 
-    let mode: ConnectorMode
+    let pipelineKind: ConnectorPipelineKind
 
     // MARK: - Outcome
 
@@ -59,7 +59,7 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         self.connector = connector
         self.providerId = connector.id
         self.providerName = connector.id.displayName
-        self.mode = connector.mode
+        self.pipelineKind = connector.pipelineKind
         self.onOutcome = onOutcome
     }
 
@@ -150,8 +150,10 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
 
     private nonisolated func isWaitingState(_ step: ConnectorStep) -> Bool {
         switch step {
-        case .waitingForExternalApp, .installing, .awaitingOAuth: return true
-        default: return false
+        case .waitingForExternalApp, .installing, .awaitingOAuth, .awaitingUserConfirm:
+            return true
+        default:
+            return false
         }
     }
 }

@@ -9,7 +9,7 @@ import os
 /// `UsageViewModel.apiKeyEntryProvider` on MainActor.
 actor APIKeyConnector: ProviderConnector {
     nonisolated let id: ProviderId
-    nonisolated let mode: ConnectorMode = .quick
+    nonisolated let pipelineKind: ConnectorPipelineKind = .singleShot
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "APIKeyConnector")
 

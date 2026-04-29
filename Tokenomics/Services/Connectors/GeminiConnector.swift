@@ -23,7 +23,7 @@ import os
 /// reads the local `oauth_creds.json` it produces. This is Path C — safe.
 actor GeminiConnector: ProviderConnector {
     nonisolated let id: ProviderId = .gemini
-    nonisolated let mode: ConnectorMode = .guided
+    nonisolated let pipelineKind: ConnectorPipelineKind = .multiStep
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "GeminiConnector")
     private static let npmPackage = "@google/gemini-cli"
@@ -36,10 +36,28 @@ actor GeminiConnector: ProviderConnector {
     private enum ActivePhase {
         case none
         case installing(progress: Double?)
+        case awaitingUserConfirm(message: String)
         case awaitingOAuth(code: String?)
     }
 
     private var activePhase: ActivePhase = .none
+
+    /// Closure for writing to the running subprocess's stdin. Captured from
+    /// the runner's `RunCLIHandle` after launch, cleared when the process
+    /// exits or is cancelled.
+    private var pendingStdinWrite: (@Sendable (String) -> Void)?
+
+    /// Confirmation prompt we look for in gemini's stdout. The CLI prints
+    /// "Opening authentication page in your browser. Do you want to continue? [Y/n]:"
+    /// before any browser open, so seeing this substring is our signal to
+    /// pause and ask the user explicitly via Tokenomics' UI.
+    private static let geminiConfirmPromptMarker = "Do you want to continue?"
+
+    /// Tokenomics-native message we surface in the awaitingUserConfirm step —
+    /// rephrases gemini's terminal prompt for a GUI audience and makes the
+    /// out-of-app side effect explicit.
+    private static let confirmDisplayMessage =
+        "Tokenomics will open Google's sign-in page in your browser to connect Gemini. Continue?"
 
     // MARK: - Init
 
@@ -54,7 +72,18 @@ actor GeminiConnector: ProviderConnector {
         switch activePhase {
         case .installing(let progress):
             return .installing(progress: progress)
+        case .awaitingUserConfirm(let message):
+            return .awaitingUserConfirm(message: message)
         case .awaitingOAuth(let code):
+            // Peek at the provider before short-circuiting — oauth_creds.json
+            // may have just appeared if the user completed the browser flow.
+            // The `gemini` subprocess may not exit promptly after the user
+            // approves, so we can't rely on its exit to drive the state.
+            let state = await provider.checkConnection()
+            if case .connected(let plan) = state {
+                activePhase = .none
+                return .connected(plan: plan)
+            }
             return .awaitingOAuth(code: code)
         case .none:
             break
@@ -77,8 +106,15 @@ actor GeminiConnector: ProviderConnector {
 
     func performPrimaryAction() async {
         switch activePhase {
+        case .awaitingUserConfirm:
+            // User just clicked "Continue" — answer gemini's prompt and let
+            // the CLI proceed with opening the browser. Transition state
+            // before writing so polling immediately reflects the change.
+            activePhase = .awaitingOAuth(code: nil)
+            pendingStdinWrite?("y\n")
+            return
         case .awaitingOAuth:
-            // Reopen browser — re-launch the CLI which will re-print the URL.
+            // Reopen browser — re-launch the CLI which will re-print the prompt.
             await launchLogin()
             return
         default:
@@ -101,6 +137,7 @@ actor GeminiConnector: ProviderConnector {
     func cancel() async {
         await runner.cancel()
         activePhase = .none
+        pendingStdinWrite = nil
     }
 
     // MARK: - Install pipeline
@@ -167,36 +204,89 @@ actor GeminiConnector: ProviderConnector {
             return
         }
 
+        // ~/.gemini/settings.json must declare an auth method or the CLI exits
+        // immediately with "Please set an Auth method…". We add the minimum
+        // required key, preserving any existing user settings.
+        ensureGeminiAuthSettings()
+
+        // Start in awaitingOAuth — once we see gemini's confirm prompt in
+        // stdout we'll downgrade to awaitingUserConfirm so the user explicitly
+        // approves opening their browser via Tokenomics' UI rather than us
+        // auto-answering gemini's terminal prompt.
         activePhase = .awaitingOAuth(code: nil)
 
-        // Gemini CLI triggers OAuth on first invocation (no separate login subcommand).
-        // Passing `--no-update-check` skips an update nag that can appear on first run
-        // and delay the auth URL appearing. If the flag isn't supported, the CLI will
-        // still work — it'll just print a warning we discard.
-        let args = ["--no-update-check"]
-
         do {
-            let events = try await runner.runCLI(binary: binary, args: args)
-            for await event in events {
+            let handle = try await runner.runCLI(binary: binary, args: [])
+            pendingStdinWrite = handle.writeStdin
+
+            for await event in handle.events {
                 switch event {
                 case .stdout(let line):
                     Self.log.debug("[gemini stdout] \(line)")
+                    if line.contains(Self.geminiConfirmPromptMarker) {
+                        // Gemini is blocked on the [Y/n] prompt. Park in
+                        // awaitingUserConfirm and let the user click through
+                        // Tokenomics' confirmation UI.
+                        if case .awaitingUserConfirm = activePhase { break }
+                        activePhase = .awaitingUserConfirm(message: Self.confirmDisplayMessage)
+                    }
                 case .stderr(let line):
                     Self.log.debug("[gemini stderr] \(line)")
-                case .deviceCode(let url, let code):
-                    // Google's OAuth device flow: code is typically nil (no short code).
-                    // We open the browser automatically and show "Waiting for sign-in…"
-                    activePhase = .awaitingOAuth(code: code)
-                    await openOnMain(url)
-                    Self.log.info("Gemini auth URL detected: \(url)")
+                case .deviceCode:
+                    // Not expected for gemini — it opens the browser itself
+                    // once the confirm prompt is answered.
+                    break
                 case .exited(let code):
                     Self.log.info("gemini exited with code \(code)")
-                    // Don't clear phase — let the polling loop detect oauth_creds.json.
+                    pendingStdinWrite = nil
+                    // Don't clear phase — let the polling loop detect
+                    // oauth_creds.json for the success transition.
                 }
             }
         } catch {
             Self.log.error("gemini login error: \(error.localizedDescription)")
             activePhase = .none
+            pendingStdinWrite = nil
+        }
+    }
+
+    /// Writes the minimum settings.json needed for `gemini` to attempt OAuth
+    /// when launched without a TTY. Preserves any existing keys the user may
+    /// already have set; only adds `security.auth.selectedType` if absent.
+    private func ensureGeminiAuthSettings() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let dir = home.appendingPathComponent(".gemini")
+        let file = dir.appendingPathComponent("settings.json")
+        let fm = FileManager.default
+
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            Self.log.error("Failed to create ~/.gemini: \(error.localizedDescription)")
+            return
+        }
+
+        var root: [String: Any] = [:]
+        if let data = try? Data(contentsOf: file),
+           let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            root = parsed
+        }
+
+        var security = root["security"] as? [String: Any] ?? [:]
+        var auth = security["auth"] as? [String: Any] ?? [:]
+        let existing = auth["selectedType"] as? String
+        if existing == nil || existing?.isEmpty == true {
+            auth["selectedType"] = "oauth-personal"
+            security["auth"] = auth
+            root["security"] = security
+
+            do {
+                let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted])
+                try data.write(to: file, options: [.atomic])
+                Self.log.info("Wrote default oauth-personal auth method to \(file.path)")
+            } catch {
+                Self.log.error("Failed to write ~/.gemini/settings.json: \(error.localizedDescription)")
+            }
         }
     }
 

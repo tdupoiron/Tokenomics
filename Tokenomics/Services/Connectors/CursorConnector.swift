@@ -17,7 +17,7 @@ import os
 /// settles.
 actor CursorConnector: ProviderConnector {
     nonisolated let id: ProviderId = .cursor
-    nonisolated let mode: ConnectorMode = .quick
+    nonisolated let pipelineKind: ConnectorPipelineKind = .singleShot
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "CursorConnector")
     private static let downloadURL = URL(string: "https://www.cursor.com/downloads")!

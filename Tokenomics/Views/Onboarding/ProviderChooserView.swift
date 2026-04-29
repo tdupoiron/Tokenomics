@@ -142,11 +142,7 @@ struct ProviderChooserView: View {
     }
 
     private func statusText(for provider: ProviderId) -> String {
-        let mode = connectorMode(for: provider)
-        switch mode {
-        case .quick: return "Quick setup"
-        case .guided: return "Guided setup"
-        }
+        setupBadgeLabel(for: provider)
     }
 
     @ViewBuilder
@@ -179,19 +175,25 @@ struct ProviderChooserView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    // MARK: - Per-provider mode
+    // MARK: - Per-provider setup badge
 
-    /// Which connector mode each provider uses. Single source of truth here so
-    /// the chooser badge and the connector implementation stay in sync.
-    private func connectorMode(for provider: ProviderId) -> ConnectorMode {
+    /// User-facing badge label shown next to each provider in the chooser.
+    /// Reflects user-perceived setup effort, not the connector's engineering
+    /// pipeline shape (see `ConnectorPipelineKind`):
+    ///
+    ///   - "Quick setup" — one click in Tokenomics; the rest is automated or
+    ///     reads from an already-installed tool's local config.
+    ///   - "Guided setup" — user has to leave the app for real work
+    ///     (install Claude Code separately, grab an API key from a provider
+    ///     website). The /setup page on trytokenomics.com spells out the steps.
+    private func setupBadgeLabel(for provider: ProviderId) -> String {
         switch provider {
-        case .cursor, .copilot, .claude,
-             .stableDiffusion, .runway, .elevenlabs:
-            return .quick
-        case .codex, .gemini:
-            return .guided
+        case .codex, .gemini, .cursor, .copilot:
+            return "Quick setup"
+        case .claude, .stableDiffusion, .runway, .elevenlabs:
+            return "Guided setup"
         case .midjourney, .suno, .udio:
-            return .quick   // unused — these rows are gated by hasAPI=false above
+            return ""   // unused — these rows are gated by hasAPI=false above
         }
     }
 }

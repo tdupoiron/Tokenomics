@@ -48,12 +48,11 @@ actor CodexProvider: UsageProvider {
     }
 
     func fetchUsage() async throws -> ProviderUsageSnapshot {
+        // No sessions yet (user signed in but hasn't run codex) is a legitimate
+        // zero-usage state, not an error. mapToSnapshot handles all-nil data
+        // gracefully — zero utilization, "No active session" sublabel.
         let sessionData = findLatestSessionData()
-
-        guard let sessionData else {
-            throw AppError.decodingFailed(underlying: CodexError.noSessionData)
-        }
-
+            ?? SessionData(tokenCount: nil, rateLimits: nil)
         return mapToSnapshot(sessionData)
     }
 

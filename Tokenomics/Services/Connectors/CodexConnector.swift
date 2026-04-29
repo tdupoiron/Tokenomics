@@ -23,7 +23,7 @@ import os
 /// the spike findings — safe and permitted.
 actor CodexConnector: ProviderConnector {
     nonisolated let id: ProviderId = .codex
-    nonisolated let mode: ConnectorMode = .guided
+    nonisolated let pipelineKind: ConnectorPipelineKind = .multiStep
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "CodexConnector")
     private static let npmPackage = "@openai/codex"
@@ -59,6 +59,15 @@ actor CodexConnector: ProviderConnector {
         case .installing(let progress):
             return .installing(progress: progress)
         case .awaitingOAuth(let code):
+            // Peek at the provider before short-circuiting — auth.json may have
+            // just appeared if the user completed the browser flow. The
+            // `codex login` subprocess doesn't always exit promptly after the
+            // user approves, so we can't rely on its exit to drive the state.
+            let state = await provider.checkConnection()
+            if case .connected(let plan) = state {
+                activePhase = .none
+                return .connected(plan: plan)
+            }
             return .awaitingOAuth(code: code)
         case .none:
             break
@@ -195,8 +204,8 @@ actor CodexConnector: ProviderConnector {
         activePhase = .awaitingOAuth(code: nil)
 
         do {
-            let events = try await runner.runCLI(binary: binary, args: ["login"])
-            for await event in events {
+            let handle = try await runner.runCLI(binary: binary, args: ["login"])
+            for await event in handle.events {
                 switch event {
                 case .stdout(let line):
                     Self.log.debug("[codex stdout] \(line)")

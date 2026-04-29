@@ -1,16 +1,24 @@
 import Foundation
 
-// MARK: - Connector mode
+// MARK: - Connector pipeline kind
 
-/// How a connector should render its UI.
-enum ConnectorMode: Sendable {
-    /// One-screen flow: auto-detect or sign-in. Used for providers where the user
-    /// can be connected with a single action (Cursor, Copilot OAuth, Claude direct OAuth).
-    case quick
+/// Engineering classification of a connector's internal flow shape. Distinct
+/// from the user-facing "Quick setup / Guided setup" badge in the provider
+/// chooser — that label is decided per-provider in `ProviderChooserView` based
+/// on user-perceived effort, not on whether the connector has internal steps.
+///
+/// E.g. CodexConnector has a `.multiStep` pipeline (detect → install → login →
+/// awaitOAuth) but its chooser badge is "Quick setup" because Tokenomics hides
+/// every step from the user behind a single sign-in click.
+enum ConnectorPipelineKind: Sendable {
+    /// Single-shot flow: detect the existing tool's auth and we're done.
+    /// Used for Cursor, Copilot, Claude (direct OAuth), and API-key providers.
+    case singleShot
 
-    /// Multi-step in-app guided walkthrough. Used for providers that need a CLI
-    /// install or a device-code sign-in surfaced through Tokenomics' own UI.
-    case guided
+    /// Multi-step state machine that the connector view drives through
+    /// detecting → installing → awaitingOAuth → connected. Used for Codex
+    /// and Gemini, which install a CLI and then run an OAuth handoff.
+    case multiStep
 }
 
 // MARK: - Connector step
@@ -37,6 +45,13 @@ enum ConnectorStep: Sendable, Equatable {
 
     /// OAuth handoff — browser is open. Optional device code for guided flows.
     case awaitingOAuth(code: String?)
+
+    /// The connector's subprocess is asking for explicit user confirmation
+    /// before proceeding (e.g. gemini's "Open browser? [Y/n]"). The view
+    /// surfaces this as a Tokenomics-native confirm step rather than
+    /// auto-answering, so the user's consent to launch the external auth
+    /// flow is captured by an explicit click in our UI.
+    case awaitingUserConfirm(message: String)
 
     /// Successfully connected.
     case connected(plan: String)
@@ -101,8 +116,10 @@ protocol ProviderConnector: Actor {
     /// Which provider this connector handles.
     nonisolated var id: ProviderId { get }
 
-    /// Which UI mode the view should render.
-    nonisolated var mode: ConnectorMode { get }
+    /// The connector's internal flow shape. Engineering classification only —
+    /// see `ConnectorPipelineKind` for why this is separate from the chooser's
+    /// user-facing "Quick / Guided" badge.
+    nonisolated var pipelineKind: ConnectorPipelineKind { get }
 
     /// One-shot detection. Called by the view model on appear and after the user
     /// taps the recovery action. Should return quickly (no long network waits).

@@ -125,7 +125,18 @@ struct MenuBarLabel: View {
                 .foregroundStyle(Color.secondary)
                 .padding(.leading, 6)
         } else {
-            Text("—")
+            // No snapshot yet (loading or just-connected with no usage data) —
+            // show empty rings rather than a bare "—". The renderer always draws
+            // the tracks; pace dots are gated on pace > 0 so they're naturally
+            // omitted when the window hasn't started elapsing.
+            Image(nsImage: MenuBarRingsRenderer.image(
+                fiveHourFraction: 0,
+                sevenDayFraction: 0,
+                fiveHourPace: 0,
+                sevenDayPace: 0
+            ))
+
+            Text("0%")
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(Color.secondary)

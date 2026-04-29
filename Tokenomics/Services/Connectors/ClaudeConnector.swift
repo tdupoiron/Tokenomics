@@ -15,7 +15,7 @@ import os
 /// Connections → Anthropic for now (existing API key entry sheet).
 actor ClaudeConnector: ProviderConnector {
     nonisolated let id: ProviderId = .claude
-    nonisolated let mode: ConnectorMode = .quick
+    nonisolated let pipelineKind: ConnectorPipelineKind = .singleShot
 
     private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "ClaudeConnector")
     private static let setupURL = URL(string: "https://trytokenomics.com/setup.html#anthropic")!

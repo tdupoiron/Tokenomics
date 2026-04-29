@@ -26,6 +26,18 @@ enum RunEvent: Sendable {
     case exited(Int32)
 }
 
+/// Handle returned by `runCLI` — the event stream plus a thread-safe closure
+/// for writing to the subprocess's stdin at any time after launch. Used by
+/// connectors that need to respond to interactive prompts (e.g. gemini's
+/// "Do you want to continue? [Y/n]").
+struct RunCLIHandle: Sendable {
+    let events: AsyncStream<RunEvent>
+    /// Writes UTF-8 bytes to the subprocess's stdin. Safe to call from any
+    /// isolation context (FileHandle.write is thread-safe). No-op if the
+    /// process has already exited.
+    let writeStdin: @Sendable (String) -> Void
+}
+
 // MARK: - Errors
 
 enum EmbeddedCLIError: Error, LocalizedError {
@@ -204,13 +216,19 @@ actor EmbeddedCLIRunner {
     /// - Parameters:
     ///   - binary: Full path to the CLI executable.
     ///   - args: Arguments to pass (e.g. `["login"]`).
-    /// - Returns: An `AsyncStream<RunEvent>`.
-    func runCLI(binary: URL, args: [String]) async throws -> AsyncStream<RunEvent> {
+    /// - Returns: A `RunCLIHandle` exposing the event stream and a stdin writer.
+    func runCLI(binary: URL, args: [String]) async throws -> RunCLIHandle {
         guard FileManager.default.isExecutableFile(atPath: binary.path) else {
             throw EmbeddedCLIError.binaryNotFound(binary)
         }
 
-        return AsyncStream<RunEvent> { [weak self] continuation in
+        // Create the stdin pipe up-front so the writer closure can capture its
+        // write handle. FileHandle.write is thread-safe, so the closure is safe
+        // to call from any actor context (or never call at all).
+        let stdinPipe = Pipe()
+        let stdinHandle = stdinPipe.fileHandleForWriting
+
+        let stream = AsyncStream<RunEvent> { [weak self] continuation in
             guard let self else {
                 continuation.finish()
                 return
@@ -221,6 +239,7 @@ actor EmbeddedCLIRunner {
                     try await self.runProcess(
                         binary: binary,
                         args: args,
+                        stdinPipe: stdinPipe,
                         continuation: continuation
                     )
                 } catch {
@@ -230,11 +249,22 @@ actor EmbeddedCLIRunner {
                 }
             }
         }
+
+        return RunCLIHandle(
+            events: stream,
+            writeStdin: { input in
+                guard let data = input.data(using: .utf8) else { return }
+                // try? swallows "broken pipe" if the subprocess exited before
+                // we got here — that's a benign race, not a failure.
+                try? stdinHandle.write(contentsOf: data)
+            }
+        )
     }
 
     private func runProcess(
         binary: URL,
         args: [String],
+        stdinPipe: Pipe,
         continuation: AsyncStream<RunEvent>.Continuation
     ) async throws {
         let process = Process()
@@ -243,7 +273,7 @@ actor EmbeddedCLIRunner {
         process.executableURL = binary
         process.arguments = args
         process.environment = buildEnvironment()
-        process.standardInput = Pipe()
+        process.standardInput = stdinPipe
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
