@@ -143,6 +143,15 @@ enum ConnectorError: Sendable, Equatable {
     /// Carries the human-readable name of the missing tool.
     case missingPrerequisite(String)
 
+    /// EACCES: filesystem permission denied during an install step.
+    ///
+    /// Carries the offending path parsed from the installer's stderr.
+    /// Recovery is to retry — since Phase 3 already uses a per-user prefix,
+    /// this is most commonly caused by a corrupted prior install leaving
+    /// bad ownership on `~/.tokenomics-cli`. Clearing the cache and
+    /// retrying usually resolves it.
+    case permissionDenied(path: String)
+
     var userFacingMessage: String {
         switch self {
         case .oauthCancelled:
@@ -169,6 +178,8 @@ enum ConnectorError: Sendable, Equatable {
             return "Tokenomics needs permission to open Terminal. Go to System Settings → Privacy & Security → Automation and allow it."
         case .missingPrerequisite(let name):
             return "We couldn't find \(name) after installing it. Try re-running detection."
+        case .permissionDenied(let path):
+            return "Permission denied writing to \(path). Tokenomics will clear its install cache and try again."
         }
     }
 
@@ -186,6 +197,7 @@ enum ConnectorError: Sendable, Equatable {
         case .caskInstallFailed: return "Retry"
         case .automationPermissionDenied: return "Open System Settings"
         case .missingPrerequisite: return "Re-detect"
+        case .permissionDenied: return "Clear cache & retry"
         }
     }
 }
@@ -271,6 +283,11 @@ extension ProviderConnector {
 
     /// Default no-op — only `APIKeyConnector` saves keys.
     func submitAPIKey(_ key: String) async -> Bool { false }
+
+    /// Clears any cached install artifacts (e.g., npm cache) so the next install
+    /// attempt starts clean. Called before retrying after a `.permissionDenied` error.
+    /// Default no-op — only npm-based connectors (Codex, Gemini) implement this.
+    func clearInstallCache() async {}
 
     /// Default stepper labels — shared by most connectors (Pattern A, B, C).
     /// Pattern D (Cursor) and Pattern E (API keys) override this.

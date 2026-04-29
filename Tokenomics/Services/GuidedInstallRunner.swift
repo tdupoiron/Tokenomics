@@ -238,7 +238,12 @@ actor GuidedInstallRunner {
         } else {
             let lastStderr = stderrLines.last ?? "npm exited with code \(exitCode)"
             Self.log.error("[GuidedInstallRunner] npm install \(package) failed (exit=\(exitCode)): \(lastStderr)")
-            continuation.yield(.failed(lastStderr))
+            // Surface EACCES as a typed failure token so connectors can classify it.
+            if let eacces = extractEACCESPath(from: stderrLines) {
+                continuation.yield(.failed("EACCES:\(eacces)"))
+            } else {
+                continuation.yield(.failed(lastStderr))
+            }
         }
         continuation.finish()
     }
@@ -338,7 +343,12 @@ actor GuidedInstallRunner {
         } else {
             let lastStderr = stderrLines.last ?? "brew exited with code \(exitCode)"
             Self.log.error("[GuidedInstallRunner] brew install \(formula) failed (exit=\(exitCode)): \(lastStderr)")
-            continuation.yield(.failed(lastStderr))
+            // Surface EACCES as a typed failure token so connectors can classify it.
+            if let eacces = extractEACCESPath(from: stderrLines) {
+                continuation.yield(.failed("EACCES:\(eacces)"))
+            } else {
+                continuation.yield(.failed(lastStderr))
+            }
         }
         continuation.finish()
     }
@@ -492,6 +502,50 @@ actor GuidedInstallRunner {
             for line in text.components(separatedBy: .newlines) where !line.isEmpty {
                 handler(line)
             }
+        }
+    }
+
+    // MARK: - EACCES classification helper
+
+    /// Scans stderr lines for EACCES or "Permission denied" and returns the
+    /// offending path if found. Returns nil if no permission error is present.
+    ///
+    /// npm formats it as: `EACCES: permission denied, mkdir '/some/path'`
+    /// brew formats it as: `Permission denied @ rb_file_s_mkdir - /some/path`
+    private func extractEACCESPath(from lines: [String]) -> String? {
+        for line in lines {
+            let lower = line.lowercased()
+            guard lower.contains("eacces") || lower.contains("permission denied") else { continue }
+
+            // npm pattern: EACCES: permission denied, <action> '<path>'
+            if let range = line.range(of: "'([^']+)'", options: .regularExpression) {
+                let match = String(line[range]).trimmingCharacters(in: .init(charactersIn: "'"))
+                return match
+            }
+            // brew pattern: Permission denied @ rb_file_s_mkdir - /path
+            // The " - /" sequence precedes the path; slice from the "/" onward.
+            if let dashRange = line.range(of: " - /") {
+                let pathStart = line.index(dashRange.upperBound, offsetBy: -1)
+                let path = String(line[pathStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return path
+            }
+            // Fallback — return the whole line truncated
+            return String(line.prefix(80))
+        }
+        return nil
+    }
+
+    /// Removes the Tokenomics npm cache directory so a subsequent npm install
+    /// starts clean. Called as the recovery action for `.permissionDenied`.
+    func clearNpmCache() async {
+        let cacheDir = Self.tokenomicsNpmPrefix.appendingPathComponent(".npm-cache")
+        do {
+            if FileManager.default.fileExists(atPath: cacheDir.path) {
+                try FileManager.default.removeItem(at: cacheDir)
+                Self.log.info("[GuidedInstallRunner] Cleared npm cache at \(cacheDir.path)")
+            }
+        } catch {
+            Self.log.error("[GuidedInstallRunner] Failed to clear npm cache: \(error.localizedDescription)")
         }
     }
 

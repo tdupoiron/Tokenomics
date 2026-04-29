@@ -68,7 +68,8 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             let e: S = .error
             switch error {
             case .cliInstallFailed, .homebrewInstallCancelled,
-                 .homebrewNotReachable, .caskInstallFailed, .missingPrerequisite:
+                 .homebrewNotReachable, .caskInstallFailed, .missingPrerequisite,
+                 .permissionDenied:
                 // Step 2 (Installing) failed
                 return [Item(label: l1, state: c), Item(label: l2, state: e),
                         Item(label: l3, state: u), Item(label: l4, state: u)]
@@ -206,6 +207,19 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             guard let self else { return }
             let current = await self.connector.currentStep()
             self.step = current
+        }
+    }
+
+    /// Recovery for `.permissionDenied` errors: clears the npm cache first,
+    /// then restarts detection. The cache clear resolves bad ownership left
+    /// by a prior failed install before retrying.
+    func tappedPermissionDeniedRecovery() {
+        Task { [connector, weak self] in
+            await connector.clearInstallCache()
+            await connector.clearFailure()
+            guard let self else { return }
+            self.step = .detecting
+            if self.pollingTask == nil { self.start() }
         }
     }
 

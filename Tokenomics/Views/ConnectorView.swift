@@ -378,6 +378,9 @@ struct ConnectorView: View {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
                             NSWorkspace.shared.open(url)
                         }
+                    } else if case .permissionDenied = error {
+                        // Clear npm cache before retrying to resolve stale bad-ownership.
+                        viewModel.tappedPermissionDeniedRecovery()
                     } else {
                         viewModel.tappedRecovery()
                     }

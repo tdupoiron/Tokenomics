@@ -309,6 +309,10 @@ actor ClaudeConnector: ProviderConnector {
     }
 
     private func classifyCaskFailure(_ reason: String) -> ConnectorError {
+        if reason.hasPrefix("EACCES:") {
+            let path = String(reason.dropFirst("EACCES:".count))
+            return .permissionDenied(path: path)
+        }
         let lower = reason.lowercased()
         if lower.contains("network") || lower.contains("curl") || lower.contains("connection refused") {
             return .homebrewNotReachable

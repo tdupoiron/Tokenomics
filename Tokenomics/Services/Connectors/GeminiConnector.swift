@@ -151,6 +151,10 @@ actor GeminiConnector: ProviderConnector {
         activePhase = .none
     }
 
+    func clearInstallCache() async {
+        await runner.clearNpmCache()
+    }
+
     func confirmInstall() async {
         guard case .confirmingInstall(let kind) = activePhase else { return }
         switch kind {
@@ -274,7 +278,7 @@ actor GeminiConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Gemini CLI install failed: \(reason)")
                     activePhase = .none
-                    failedState = .cliInstallFailed(reason)
+                    failedState = classifyNpmFailure(reason)
                 }
             }
         } catch {
@@ -300,6 +304,10 @@ actor GeminiConnector: ProviderConnector {
     }
 
     private func classifyBrewFormulaFailure(_ reason: String) -> ConnectorError {
+        if reason.hasPrefix("EACCES:") {
+            let path = String(reason.dropFirst("EACCES:".count))
+            return .permissionDenied(path: path)
+        }
         let lower = reason.lowercased()
         if lower.contains("network") || lower.contains("curl") || lower.contains("connection refused") {
             return .homebrewNotReachable
@@ -436,6 +444,14 @@ actor GeminiConnector: ProviderConnector {
                 skipLabel: "Already have Gemini CLI? Skip this step"
             )
         }
+    }
+
+    private func classifyNpmFailure(_ reason: String) -> ConnectorError {
+        if reason.hasPrefix("EACCES:") {
+            let path = String(reason.dropFirst("EACCES:".count))
+            return .permissionDenied(path: path)
+        }
+        return .cliInstallFailed(reason)
     }
 
     @MainActor
