@@ -574,19 +574,27 @@ struct PopoverView: View {
 
     // MARK: - Onboarding Launcher Card
 
-    /// Minimal card shown in the popover before the user completes setup.
-    /// Tapping the button opens the persistent onboarding window.
+    /// Shown in the popover before the user completes setup — same headline + lede
+    /// style as the rest of the popover. Tapping the button opens the persistent
+    /// onboarding window. Connection count gives the user progress context on re-entry.
     private var onboardingLauncherCard: some View {
-        VStack(spacing: 12) {
+        let connected = viewModel.connectedProviders.count
+        let total = viewModel.installedProviders.count + viewModel.connectedProviders.count
+        let subtitle: String = connected == 0
+            ? "Connect your AI coding tools to start tracking usage."
+            : "\(connected) of \(max(connected, total)) providers connected."
+
+        return VStack(spacing: 10) {
             Image(systemName: "link.badge.plus")
-                .font(.system(size: 28))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 26))
+                .foregroundStyle(.tint)
+                .padding(.bottom, 2)
 
             Text("Set up your providers")
                 .scaledFont(.headline)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
 
-            Text("Connect your AI coding tools to start tracking usage.")
+            Text(subtitle)
                 .scaledFont(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -596,8 +604,17 @@ struct PopoverView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.regular)
+            .padding(.top, 4)
+
+            Button("Skip for now") {
+                viewModel.completeOnboarding()
+            }
+            .buttonStyle(.plain)
+            .scaledFont(.caption)
+            .foregroundStyle(.tertiary)
         }
-        .padding(32)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 28)
         .frame(maxWidth: .infinity)
     }
 

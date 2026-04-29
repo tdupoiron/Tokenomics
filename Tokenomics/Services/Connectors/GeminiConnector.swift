@@ -49,6 +49,9 @@ actor GeminiConnector: ProviderConnector {
 
     private var activePhase: ActivePhase = .none
 
+    /// When set, `currentStep()` returns `.failed` immediately. Cleared on cancel/skip.
+    private var failedState: ConnectorError?
+
     /// Closure for writing to the running subprocess's stdin. Captured from
     /// the runner's `RunCLIHandle` after launch, cleared when the process
     /// exits or is cancelled.
@@ -72,6 +75,8 @@ actor GeminiConnector: ProviderConnector {
     // MARK: - ProviderConnector
 
     func currentStep() async -> ConnectorStep {
+        if let failure = failedState { return .failed(failure) }
+
         switch activePhase {
         case .confirmingInstall(let kind):
             return confirmStep(for: kind)
@@ -137,6 +142,7 @@ actor GeminiConnector: ProviderConnector {
     func cancel() async {
         await runner.cancel()
         activePhase = .none
+        failedState = nil
         pendingStdinWrite = nil
     }
 
@@ -154,6 +160,7 @@ actor GeminiConnector: ProviderConnector {
 
     func skipInstall() async {
         activePhase = .none
+        failedState = nil
         await startPrerequisiteChain()
     }
 
@@ -195,11 +202,13 @@ actor GeminiConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Homebrew install failed: \(reason)")
                     activePhase = .none
+                    failedState = classifyHomebrewFailure(reason)
                 }
             }
         } catch {
             Self.log.error("Homebrew install error: \(error.localizedDescription)")
             activePhase = .none
+            failedState = .cliInstallFailed(error.localizedDescription)
         }
     }
 
@@ -207,6 +216,7 @@ actor GeminiConnector: ProviderConnector {
         guard let brewPath = SystemPrerequisiteDetector.homebrewPath() else {
             Self.log.error("brew not found — cannot install Node.js")
             activePhase = .none
+            failedState = .missingPrerequisite("Homebrew")
             return
         }
         activePhase = .installingDependency(name: "Node.js", progress: nil)
@@ -226,11 +236,13 @@ actor GeminiConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Node.js install failed: \(reason)")
                     activePhase = .none
+                    failedState = classifyBrewFormulaFailure(reason)
                 }
             }
         } catch {
             Self.log.error("Node.js install error: \(error.localizedDescription)")
             activePhase = .none
+            failedState = .cliInstallFailed(error.localizedDescription)
         }
     }
 
@@ -238,6 +250,7 @@ actor GeminiConnector: ProviderConnector {
         guard let npmPath = SystemPrerequisiteDetector.npmPath() else {
             Self.log.error("npm not found — cannot install Gemini CLI")
             activePhase = .none
+            failedState = .missingPrerequisite("Node.js")
             return
         }
         activePhase = .installingCLI(progress: nil)
@@ -256,12 +269,37 @@ actor GeminiConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Gemini CLI install failed: \(reason)")
                     activePhase = .none
+                    failedState = .cliInstallFailed(reason)
                 }
             }
         } catch {
             Self.log.error("Gemini CLI install error: \(error.localizedDescription)")
             activePhase = .none
+            failedState = .cliInstallFailed(error.localizedDescription)
         }
+    }
+
+    // MARK: - Failure classification
+
+    private func classifyHomebrewFailure(_ reason: String) -> ConnectorError {
+        let lower = reason.lowercased()
+        if lower.contains("user canceled") || lower.contains("errAEEventNotPermitted".lowercased())
+            || lower.contains("not allowed to send apple events") {
+            return .homebrewInstallCancelled
+        }
+        if lower.contains("curl") || lower.contains("network") || lower.contains("connection refused")
+            || lower.contains("could not resolve host") {
+            return .homebrewNotReachable
+        }
+        return .cliInstallFailed(reason)
+    }
+
+    private func classifyBrewFormulaFailure(_ reason: String) -> ConnectorError {
+        let lower = reason.lowercased()
+        if lower.contains("network") || lower.contains("curl") || lower.contains("connection refused") {
+            return .homebrewNotReachable
+        }
+        return .cliInstallFailed(reason)
     }
 
     // MARK: - Login pipeline
@@ -370,18 +408,27 @@ actor GeminiConnector: ProviderConnector {
         switch kind {
         case .homebrew:
             return .confirmingInstall(
-                title: "Tokenomics will install Homebrew",
-                body: "Homebrew is a package manager for macOS. Tokenomics uses it to install Node.js — this only happens once."
+                title: "Install Homebrew",
+                body: "Tokenomics needs Homebrew to install Gemini. Homebrew is the standard Mac package manager — about 2 minutes to install.",
+                commandPreview: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+                footnote: "We'll open Terminal and install Homebrew with your permission. You'll be asked for your password once. This is Homebrew's official installer, straight from brew.sh.",
+                skipLabel: "Already have Homebrew? Skip this step"
             )
         case .node:
             return .confirmingInstall(
-                title: "Tokenomics will install Node.js",
-                body: "Node.js is needed to run the Gemini CLI. Takes about 30 seconds."
+                title: "Install Node.js",
+                body: "Now we'll install Node.js using Homebrew. About 30 seconds, no extra permissions needed.",
+                commandPreview: "brew install node",
+                footnote: "Tokenomics installs Node.js into ~/.tokenomics-cli so it stays separate from any Node you might install later.",
+                skipLabel: "Already have Node.js? Skip this step"
             )
         case .geminiCLI:
             return .confirmingInstall(
-                title: "Tokenomics will install the Gemini CLI",
-                body: "The Gemini CLI is Google's command-line tool. Tokenomics installs it to a private folder on your Mac."
+                title: "Install Gemini CLI",
+                body: "Tokenomics will install Google's command-line Gemini tool. About 30 seconds.",
+                commandPreview: "npm install -g @google/gemini-cli",
+                footnote: "Installed to ~/.tokenomics-cli — keeps Tokenomics' tools out of your global npm.",
+                skipLabel: "Already have Gemini CLI? Skip this step"
             )
         }
     }

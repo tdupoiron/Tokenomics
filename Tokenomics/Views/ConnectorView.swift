@@ -17,6 +17,15 @@ struct ConnectorView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
+            // 4-segment step indicator — hidden on states that don't warrant it.
+            if !viewModel.stepperItems.isEmpty {
+                OnboardingStepper(items: viewModel.stepperItems)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.2), value: viewModel.stepperItems)
+            }
+
             Divider()
 
             ScrollView {
@@ -25,6 +34,7 @@ struct ConnectorView: View {
                     .padding(.vertical, 14)
             }
         }
+        .navigationTitle("Connect \(viewModel.providerName)")
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
     }
@@ -79,19 +89,23 @@ struct ConnectorView: View {
             errorState(error: error)
         case .detecting:
             DetectStep(message: detectMessage(for: viewModel.providerId))
-        case .confirmingInstall(let title, let body):
+        case .confirmingInstall(let title, let body, let commandPreview, let footnote, let skipLabel):
             ConfirmInstallStep(
                 title: title,
                 description: body,
+                commandPreview: commandPreview,
+                footnote: footnote,
+                skipLabel: skipLabel,
                 onContinue: { viewModel.tappedConfirmInstall() },
                 onSkip: { viewModel.tappedSkipInstall() }
             )
-        case .previewExternalSteps(let headline, let body, let items, let primaryLabel):
+        case .previewExternalSteps(let headline, let body, let items, let primaryLabel, let headsUp):
             PreviewExternalStepsView(
                 headline: headline,
                 introText: body,
                 items: items,
                 primaryLabel: primaryLabel,
+                headsUp: headsUp,
                 onPrimary: { viewModel.tappedAdvancePreview() },
                 onBack: onBack
             )
@@ -324,7 +338,14 @@ struct ConnectorView: View {
 
             VStack(spacing: 10) {
                 Button(error.recoveryActionLabel) {
-                    viewModel.tappedRecovery()
+                    if case .automationPermissionDenied = error {
+                        // Open the Automation section in System Settings directly.
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } else {
+                        viewModel.tappedRecovery()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)

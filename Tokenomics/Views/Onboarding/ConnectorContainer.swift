@@ -46,6 +46,18 @@ struct ConnectorContainer: View {
                 }
             }
         }
+        // Reset to chooser on re-entry so users who completed or cancelled a
+        // previous flow don't land on a stale connector screen.
+        .onAppear {
+            if screen == .connector && activeConnector == nil {
+                screen = .chooser
+            }
+            // If the user previously finished onboarding but re-opened via Settings,
+            // land on the chooser instead of welcome so they can add more providers.
+            if viewModel.hasCompletedOnboarding && screen == .welcome {
+                screen = .chooser
+            }
+        }
     }
 
     // MARK: - Navigation

@@ -57,8 +57,21 @@ enum ConnectorStep: Sendable, Equatable {
     case connected(plan: String)
 
     /// Asks the user to confirm an install action before it begins. Rendered with
-    /// `ConfirmInstallStep` (Continue / "I already have this").
-    case confirmingInstall(title: String, body: String)
+    /// `ConfirmInstallStep` (Continue / skip link).
+    ///
+    /// - Parameters:
+    ///   - title: Short headline. E.g. "Install Homebrew"
+    ///   - body: Explanation of why this is needed.
+    ///   - commandPreview: The exact shell command Tokenomics will run. Nil hides the card.
+    ///   - footnote: Source/runtime/disk disclosure shown below the command card.
+    ///   - skipLabel: Text for the skip link. E.g. "Already have Homebrew? Skip this step"
+    case confirmingInstall(
+        title: String,
+        body: String,
+        commandPreview: String? = nil,
+        footnote: String? = nil,
+        skipLabel: String = "I already have this"
+    )
 
     /// Tokenomics is installing a prerequisite (Homebrew, Node.js, etc.) — distinct
     /// from `.installing(progress:)` which is reserved for the primary CLI install
@@ -70,11 +83,13 @@ enum ConnectorStep: Sendable, Equatable {
     /// Used for Windows 3 and 4 of the Anthropic flow.
     /// `primaryLabel` controls the button text — "Continue" for Window 3,
     /// "Open Terminal" for Window 4.
+    /// `headsUp` is an optional advisory callout shown below the step list (Window 4 only).
     case previewExternalSteps(
         headline: String,
         body: String,
         items: [String],
-        primaryLabel: String
+        primaryLabel: String,
+        headsUp: String? = nil
     )
 
     /// Tokenomics has handed off to an external CLI auth flow and is polling
@@ -98,6 +113,27 @@ enum ConnectorError: Sendable, Equatable {
     case keychainWriteFailed
     case unknown(String)
 
+    // MARK: Install-specific errors (Step 5)
+
+    /// User dismissed the macOS admin authorization dialog for the Homebrew install script.
+    case homebrewInstallCancelled
+
+    /// Network failure during `brew install` — the install script couldn't reach
+    /// GitHub or Homebrew's CDN.
+    case homebrewNotReachable
+
+    /// `brew install --cask <name>` failed for a reason other than network.
+    /// Carries the last stderr line for logging; not shown verbatim to users.
+    case caskInstallFailed(String)
+
+    /// macOS Automation (TCC) denied Tokenomics the right to control Terminal.app
+    /// via AppleScript. The user needs to grant it in System Settings.
+    case automationPermissionDenied
+
+    /// A binary we expected to find after an install step wasn't there.
+    /// Carries the human-readable name of the missing tool.
+    case missingPrerequisite(String)
+
     var userFacingMessage: String {
         switch self {
         case .oauthCancelled:
@@ -114,6 +150,16 @@ enum ConnectorError: Sendable, Equatable {
             return "We couldn't securely store your sign-in. Check Keychain Access permissions."
         case .unknown(let detail):
             return detail
+        case .homebrewInstallCancelled:
+            return "Homebrew install was cancelled. You'll need to approve the admin prompt to continue."
+        case .homebrewNotReachable:
+            return "Homebrew couldn't download. Check your internet connection and try again."
+        case .caskInstallFailed:
+            return "The install didn't complete. Check that Homebrew is working and try again."
+        case .automationPermissionDenied:
+            return "Tokenomics needs permission to open Terminal. Go to System Settings → Privacy & Security → Automation and allow it."
+        case .missingPrerequisite(let name):
+            return "We couldn't find \(name) after installing it. Try re-running detection."
         }
     }
 
@@ -126,6 +172,11 @@ enum ConnectorError: Sendable, Equatable {
         case .appNotFound: return "Show me how"
         case .keychainWriteFailed: return "Try again"
         case .unknown: return "Try again"
+        case .homebrewInstallCancelled: return "Try install again"
+        case .homebrewNotReachable: return "Retry"
+        case .caskInstallFailed: return "Retry"
+        case .automationPermissionDenied: return "Open System Settings"
+        case .missingPrerequisite: return "Re-detect"
         }
     }
 }

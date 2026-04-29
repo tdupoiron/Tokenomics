@@ -68,6 +68,11 @@ actor ClaudeConnector: ProviderConnector {
     // MARK: - ProviderConnector
 
     func currentStep() async -> ConnectorStep {
+        // Surface a typed failure immediately if one was recorded.
+        if let failure = failedState {
+            return .failed(failure)
+        }
+
         switch activePhase {
         case .confirmingInstall(let kind):
             return confirmStep(for: kind)
@@ -99,7 +104,8 @@ actor ClaudeConnector: ProviderConnector {
                     "Pick a folder Claude can access — create a Projects folder in your Home folder if you don't have one",
                     "Grant macOS permissions as Claude Code asks for them"
                 ],
-                primaryLabel: "Open Terminal"
+                primaryLabel: "Open Terminal",
+                headsUp: "Heads up: Claude Code asks macOS for access to a bunch of folders during setup — Music, Photos, Downloads, Documents. Safe to decline anything outside your Projects folder. Claude works fine without them."
             )
 
         case .awaitingExternalAuth:
@@ -158,6 +164,7 @@ actor ClaudeConnector: ProviderConnector {
     func cancel() async {
         await runner.cancel()
         activePhase = .none
+        failedState = nil
     }
 
     func confirmInstall() async {
@@ -172,6 +179,7 @@ actor ClaudeConnector: ProviderConnector {
 
     func skipInstall() async {
         activePhase = .none
+        failedState = nil
         await startPrerequisiteChain()
     }
 
@@ -187,7 +195,10 @@ actor ClaudeConnector: ProviderConnector {
             // synchronous from the user's perspective. AppleScript blocks briefly —
             // run it off the main actor (we're already on the connector actor).
             await openTerminalWithClaude()
-            activePhase = .awaitingExternalAuth
+            // Only advance if openTerminalWithClaude didn't surface an error.
+            if failedState == nil {
+                activePhase = .awaitingExternalAuth
+            }
 
         default:
             break
@@ -229,11 +240,13 @@ actor ClaudeConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Homebrew install failed: \(reason)")
                     activePhase = .none
+                    failedState = classifyHomebrewFailure(reason)
                 }
             }
         } catch {
             Self.log.error("Homebrew install error: \(error.localizedDescription)")
             activePhase = .none
+            failedState = .cliInstallFailed(error.localizedDescription)
         }
     }
 
@@ -241,6 +254,7 @@ actor ClaudeConnector: ProviderConnector {
         guard let brewPath = SystemPrerequisiteDetector.homebrewPath() else {
             Self.log.error("brew not found — cannot install Claude Code cask")
             activePhase = .none
+            failedState = .missingPrerequisite("Homebrew")
             return
         }
         activePhase = .installingCLI(progress: nil)
@@ -263,12 +277,38 @@ actor ClaudeConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Claude Code install failed: \(reason)")
                     activePhase = .none
+                    failedState = classifyCaskFailure(reason)
                 }
             }
         } catch {
             Self.log.error("Claude Code install error: \(error.localizedDescription)")
             activePhase = .none
+            failedState = .cliInstallFailed(error.localizedDescription)
         }
+    }
+
+    // MARK: - Failure classification
+
+    /// Maps a raw runner failure string to the most specific `ConnectorError`.
+    private func classifyHomebrewFailure(_ reason: String) -> ConnectorError {
+        let lower = reason.lowercased()
+        if lower.contains("user canceled") || lower.contains("errAEEventNotPermitted".lowercased())
+            || lower.contains("not allowed to send apple events") {
+            return .homebrewInstallCancelled
+        }
+        if lower.contains("curl") || lower.contains("network") || lower.contains("connection refused")
+            || lower.contains("could not resolve host") {
+            return .homebrewNotReachable
+        }
+        return .cliInstallFailed(reason)
+    }
+
+    private func classifyCaskFailure(_ reason: String) -> ConnectorError {
+        let lower = reason.lowercased()
+        if lower.contains("network") || lower.contains("curl") || lower.contains("connection refused") {
+            return .homebrewNotReachable
+        }
+        return .caskInstallFailed(reason)
     }
 
     // MARK: - Binary detection
@@ -302,6 +342,10 @@ actor ClaudeConnector: ProviderConnector {
     /// in a visible Terminal window without managing PTYs ourselves. The TCC
     /// Automation dialog appears the first time — this is expected macOS behaviour
     /// for any app that controls Terminal via AppleScript.
+    ///
+    /// If macOS denies the Automation permission (error -1743 or a message containing
+    /// "not authorized to send Apple events"), surfaces `.failed(.automationPermissionDenied)`
+    /// instead of silently swallowing the error.
     private func openTerminalWithClaude() async {
         let script = """
         tell application "Terminal"
@@ -311,32 +355,57 @@ actor ClaudeConnector: ProviderConnector {
         """
         // AppleScript execution can block; run it in a detached task to avoid
         // holding the connector actor for the TCC prompt duration.
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        let denied = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 var error: NSDictionary?
                 let appleScript = NSAppleScript(source: script)
                 appleScript?.executeAndReturnError(&error)
                 if let err = error {
                     Self.log.error("AppleScript Terminal launch error: \(err)")
+                    let code = err[NSAppleScript.errorNumber] as? Int ?? 0
+                    let message = (err[NSAppleScript.errorMessage] as? String ?? "").lowercased()
+                    let isPermissionDenied = code == -1743
+                        || message.contains("not authorized")
+                        || message.contains("automation")
+                    continuation.resume(returning: isPermissionDenied)
+                } else {
+                    continuation.resume(returning: false)
                 }
-                continuation.resume()
             }
+        }
+
+        if denied {
+            activePhase = .none
+            failedState = .automationPermissionDenied
         }
     }
 
-    // MARK: - Confirm step copy
+    // MARK: - Error state
+
+    /// When set, `currentStep()` returns `.failed` immediately regardless of `activePhase`.
+    /// Cleared by the user tapping the recovery action (triggers a re-detect via
+    /// `ConnectorViewModel.tappedRecovery()`).
+    private var failedState: ConnectorError?
+
+    // MARK: - Confirm step copy (mockup-exact)
 
     private func confirmStep(for kind: PrerequisiteKind) -> ConnectorStep {
         switch kind {
         case .homebrew:
             return .confirmingInstall(
-                title: "Tokenomics will install Homebrew",
-                body: "Homebrew is the standard Mac package manager — Tokenomics uses it to install Claude Code. About 2 minutes to install, password required once."
+                title: "Install Homebrew",
+                body: "Tokenomics needs Homebrew to install Claude Code. Homebrew is the standard Mac package manager — about 2 minutes to install.",
+                commandPreview: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+                footnote: "We'll open Terminal and install Homebrew with your permission. You'll be asked for your password once. This is Homebrew's official installer, straight from brew.sh.",
+                skipLabel: "Already have Homebrew? Skip this step"
             )
         case .claudeCode:
             return .confirmingInstall(
-                title: "Tokenomics will install Claude Code",
-                body: "Tokenomics will run `brew install --cask claude-code` — Anthropic's official Mac installer. About 1 minute, no extra permissions needed."
+                title: "Install Claude Code",
+                body: "Now we'll install Claude Code using Homebrew. About 1 minute, no extra permissions needed.",
+                commandPreview: "brew install --cask claude-code",
+                footnote: "We'll run this in the same Terminal window. This is Anthropic's official Mac install — same command on claude.com's setup docs. Tokenomics doesn't add anything; we just run it for you.",
+                skipLabel: "Already have Claude Code? Skip this step"
             )
         }
     }

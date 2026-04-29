@@ -23,6 +23,33 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
 
     let pipelineKind: ConnectorPipelineKind
 
+    // MARK: - Stepper
+
+    /// Maps the current step to the 4-segment onboarding stepper items shown
+    /// across the top of every connector screen. Returns an empty array for
+    /// steps that show no stepper (failed, waitingForExternalApp).
+    var stepperItems: [OnboardingStepperItem] {
+        typealias Item = OnboardingStepperItem
+        typealias S = OnboardingStepperItem.State
+        let c: S = .completed; let a: S = .active; let u: S = .upcoming
+        switch step {
+        case .detecting, .needsAction:
+            return [Item(label: "Checking", state: a), Item(label: "Installing", state: u),
+                    Item(label: "Signing in", state: u), Item(label: "Done", state: u)]
+        case .confirmingInstall, .installingDependency, .installing:
+            return [Item(label: "Checking", state: c), Item(label: "Installing", state: a),
+                    Item(label: "Signing in", state: u), Item(label: "Done", state: u)]
+        case .previewExternalSteps, .awaitingOAuth, .awaitingUserConfirm, .awaitingExternalAuth:
+            return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
+                    Item(label: "Signing in", state: a), Item(label: "Done", state: u)]
+        case .connected:
+            return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
+                    Item(label: "Signing in", state: c), Item(label: "Done", state: a)]
+        case .failed, .waitingForExternalApp:
+            return []
+        }
+    }
+
     // MARK: - Outcome
 
     /// Emitted when the user chooses what to do after connecting.

@@ -7,7 +7,8 @@ import SwiftUI
 /// own wizard, so there are no surprises when Terminal opens. Design mirrors
 /// `ConfirmInstallStep`: same padding, same button rhythm.
 ///
-/// Step 5 will add the collapsible "Heads up" note visible in the Window 4 mockup.
+/// The optional `headsUp` callout (Window 4) surfaces a mild macOS permissions
+/// advisory so the user knows what to expect from Claude Code's permission dialogs.
 struct PreviewExternalStepsView: View {
     /// Short headline. E.g. "Finish installing Claude Code" or "Setup".
     var headline: String
@@ -21,6 +22,10 @@ struct PreviewExternalStepsView: View {
 
     /// Label for the primary action button. "Continue" or "Open Terminal".
     var primaryLabel: String
+
+    /// Optional advisory callout shown below the step list.
+    /// E.g. "Heads up: Claude Code asks macOS for access to a bunch of folders…"
+    var headsUp: String? = nil
 
     /// Called when the user taps the primary button.
     var onPrimary: () -> Void
@@ -63,6 +68,13 @@ struct PreviewExternalStepsView: View {
             .padding(.top, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            // "Heads up" advisory callout — shown only when populated (Window 4).
+            if let headsUp {
+                headsUpCallout(headsUp)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+            }
+
             Spacer(minLength: 16)
 
             // Action stack — same vertical rhythm as ConnectorView.
@@ -83,6 +95,32 @@ struct PreviewExternalStepsView: View {
             .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Heads-up callout
+
+    /// Muted advisory block with an info icon — matches the mockup's callout pattern.
+    private func headsUpCallout(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 1)
+
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Wizard list row
@@ -141,7 +179,7 @@ struct PreviewExternalStepsView: View {
     .frame(width: 320, height: 440)
 }
 
-#Preview("Window 4 — Setup preview") {
+#Preview("Window 4 — Setup preview with headsUp") {
     PreviewExternalStepsView(
         headline: "Setup",
         introText: "After you sign in, Claude Code asks for two more things — a folder and macOS permissions. Finish those and you're done.",
@@ -150,8 +188,9 @@ struct PreviewExternalStepsView: View {
             "Grant macOS permissions as Claude Code asks for them"
         ],
         primaryLabel: "Open Terminal",
+        headsUp: "Heads up: Claude Code asks macOS for access to a bunch of folders during setup — Music, Photos, Downloads, Documents. Safe to decline anything outside your Projects folder. Claude works fine without them.",
         onPrimary: {},
         onBack: {}
     )
-    .frame(width: 320, height: 360)
+    .frame(width: 320, height: 420)
 }
