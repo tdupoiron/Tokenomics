@@ -229,6 +229,15 @@ protocol ProviderConnector: Actor {
     /// before restarting the polling loop — without this, the first poll after
     /// retry immediately sees the stale `failedState` and bounces back to `.failed`.
     func clearFailure() async
+
+    /// Display labels for each of the four stepper segments shown across the top of
+    /// every connector screen. Must be `nonisolated` so `ConnectorViewModel` (on
+    /// MainActor) can read it without an `await`.
+    ///
+    /// Override in connectors that use different vocabulary — e.g., CursorConnector
+    /// wants step 2 = "Installing Cursor", APIKeyConnector wants step 2 = "Get API key".
+    /// The default returns the shared labels used by Pattern A/B/C connectors.
+    nonisolated var stepperLabels: (step1: String, step2: String, step3: String, step4: String) { get }
 }
 
 // MARK: - Default no-op implementations
@@ -245,4 +254,10 @@ extension ProviderConnector {
 
     /// Default no-op — connectors that never set `failedState` don't need this.
     func clearFailure() async {}
+
+    /// Default stepper labels — shared by most connectors (Pattern A, B, C).
+    /// Pattern D (Cursor) and Pattern E (API keys) override this.
+    nonisolated var stepperLabels: (step1: String, step2: String, step3: String, step4: String) {
+        ("Checking", "Installing", "Signing in", "Connection check")
+    }
 }

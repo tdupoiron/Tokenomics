@@ -23,6 +23,10 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
 
     let pipelineKind: ConnectorPipelineKind
 
+    /// Stepper segment labels, read once from the connector at init.
+    /// Stored so `stepperItems` stays a simple computed property on MainActor.
+    private let labels: (step1: String, step2: String, step3: String, step4: String)
+
     // MARK: - Stepper
 
     /// Maps the current step to the 4-segment onboarding stepper items shown
@@ -32,19 +36,21 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         typealias Item = OnboardingStepperItem
         typealias S = OnboardingStepperItem.State
         let c: S = .completed; let a: S = .active; let u: S = .upcoming
+        let l1 = labels.step1; let l2 = labels.step2
+        let l3 = labels.step3; let l4 = labels.step4
         switch step {
         case .detecting, .needsAction:
-            return [Item(label: "Checking", state: a), Item(label: "Installing", state: u),
-                    Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
+            return [Item(label: l1, state: a), Item(label: l2, state: u),
+                    Item(label: l3, state: u), Item(label: l4, state: u)]
         case .confirmingInstall, .installingDependency, .installing:
-            return [Item(label: "Checking", state: c), Item(label: "Installing", state: a),
-                    Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
+            return [Item(label: l1, state: c), Item(label: l2, state: a),
+                    Item(label: l3, state: u), Item(label: l4, state: u)]
         case .previewExternalSteps, .awaitingOAuth, .awaitingUserConfirm, .awaitingExternalAuth:
-            return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
-                    Item(label: "Signing in", state: a), Item(label: "Connection check", state: u)]
+            return [Item(label: l1, state: c), Item(label: l2, state: c),
+                    Item(label: l3, state: a), Item(label: l4, state: u)]
         case .connected:
-            return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
-                    Item(label: "Signing in", state: c), Item(label: "Connection check", state: a)]
+            return [Item(label: l1, state: c), Item(label: l2, state: c),
+                    Item(label: l3, state: c), Item(label: l4, state: a)]
         case .waitingForExternalApp:
             return []
         case .failed(let error):
@@ -55,17 +61,17 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             case .cliInstallFailed, .homebrewInstallCancelled,
                  .homebrewNotReachable, .caskInstallFailed, .missingPrerequisite:
                 // Step 2 (Installing) failed
-                return [Item(label: "Checking", state: c), Item(label: "Installing", state: e),
-                        Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
+                return [Item(label: l1, state: c), Item(label: l2, state: e),
+                        Item(label: l3, state: u), Item(label: l4, state: u)]
             case .oauthCancelled, .oauthFailed, .detectionTimeout,
                  .automationPermissionDenied, .appNotFound:
                 // Step 3 (Signing in) failed
-                return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
-                        Item(label: "Signing in", state: e), Item(label: "Connection check", state: u)]
+                return [Item(label: l1, state: c), Item(label: l2, state: c),
+                        Item(label: l3, state: e), Item(label: l4, state: u)]
             default:
                 // Unknown/keychain — show step 1 as error (detection phase)
-                return [Item(label: "Checking", state: e), Item(label: "Installing", state: u),
-                        Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
+                return [Item(label: l1, state: e), Item(label: l2, state: u),
+                        Item(label: l3, state: u), Item(label: l4, state: u)]
             }
         }
     }
@@ -100,6 +106,8 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         self.providerId = connector.id
         self.providerName = connector.id.displayName
         self.pipelineKind = connector.pipelineKind
+        // nonisolated — safe to read directly without await
+        self.labels = connector.stepperLabels
         self.onOutcome = onOutcome
     }
 
