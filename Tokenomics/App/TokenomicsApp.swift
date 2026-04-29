@@ -27,6 +27,37 @@ struct TokenomicsApp: App {
                 }
         }
         .menuBarExtraStyle(.window)
+
+        // MARK: - Onboarding Window
+
+        WindowGroup(id: "onboarding") {
+            OnboardingWindowRoot(viewModel: viewModel)
+        }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 680, height: 580)
+        .windowStyle(.titleBar)
+    }
+}
+
+// MARK: - Onboarding window root
+
+/// Wraps ConnectorContainer for the onboarding WindowGroup.
+/// Switches NSApplication's activation policy to `.regular` so the window is
+/// focusable (LSUIElement is still `true` — no Dock icon except while this view
+/// is visible), then restores `.accessory` when it disappears.
+struct OnboardingWindowRoot: View {
+    @ObservedObject var viewModel: UsageViewModel
+
+    var body: some View {
+        ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
+            .frame(width: 680, height: 580)
+            .onAppear {
+                NSApplication.shared.setActivationPolicy(.regular)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            .onDisappear {
+                NSApplication.shared.setActivationPolicy(.accessory)
+            }
     }
 }
 

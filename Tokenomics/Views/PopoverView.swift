@@ -11,6 +11,8 @@ struct PopoverView: View {
     @AppStorage("textSize") private var textSizeRaw: String = TextSize.compact.rawValue
     private var textSize: TextSize { TextSize(rawValue: textSizeRaw) ?? .compact }
 
+    @Environment(\.openWindow) private var openWindow
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -30,10 +32,10 @@ struct PopoverView: View {
             } else if viewModel.showSettings {
                 settingsView
             } else if !viewModel.hasCompletedOnboarding {
-                // New connector-based onboarding is now the default flow.
-                // OnboardingView (the legacy single-screen list) is kept in the
-                // project for one release as a reference but is no longer reachable.
-                ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
+                // First-launch users: show a lightweight card that opens the
+                // real onboarding window. The window persists across app-switches
+                // (unlike this popover, which dismisses on focus loss).
+                onboardingLauncherCard
             } else {
                 mainContent
             }
@@ -453,6 +455,15 @@ struct PopoverView: View {
                 Divider().padding(.horizontal, 16)
 
                 settingsNavRow(
+                    icon: "plus.circle",
+                    label: "Setup providers\u{2026}"
+                ) {
+                    openWindow(id: "onboarding")
+                }
+
+                Divider().padding(.horizontal, 16)
+
+                settingsNavRow(
                     icon: "bell",
                     label: "Notifications",
                     detail: viewModel.notificationsSubtitle
@@ -559,6 +570,35 @@ struct PopoverView: View {
                 .padding(.vertical, 9)
             }
         }
+    }
+
+    // MARK: - Onboarding Launcher Card
+
+    /// Minimal card shown in the popover before the user completes setup.
+    /// Tapping the button opens the persistent onboarding window.
+    private var onboardingLauncherCard: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "link.badge.plus")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+
+            Text("Set up your providers")
+                .scaledFont(.headline)
+                .fontWeight(.medium)
+
+            Text("Connect your AI coding tools to start tracking usage.")
+                .scaledFont(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Open setup window") {
+                openWindow(id: "onboarding")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Settings Helpers
