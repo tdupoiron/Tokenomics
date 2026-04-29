@@ -1042,3 +1042,234 @@ asking "what does this layout depend on?" rather than "what pixel value
 fixes this?"
 
 ---
+
+## 2026-04-27 — v2.9.0-beta.1: Zero-Terminal Onboarding — Shifting Burden from User to Technology [UX+UI]
+
+**Phase**: The Approach and The Build — product strategy, design system extension, and a constraint that reshaped the architecture
+
+**The Problem**: Tokenomics had a targeting contradiction. The value proposition
+was ambient visibility for anyone who uses AI tools — but the setup experience
+required installing Node.js in Terminal. The user it was built for was watching
+their Claude credits mid-session; the user who could actually complete setup
+was comfortable with npm. These are not the same person, and the gap was
+growing as AI tools reached non-developers.
+
+The design constraint I set: **an 8th-grader should be able to connect any
+provider.** Not a developer. Not someone who knows what npm means. Someone
+who uses Copilot to write emails, Gemini to summarize documents, Cursor
+to write a bit of code. The original flow failed that test on every provider
+except Cursor.
+
+**What Changed**: v2.9.0-beta.1 ships a new three-screen onboarding flow —
+Welcome → Provider Chooser → Connector — and replaces every Terminal handoff
+with in-app guided flows. No user ever sees a command prompt; Tokenomics owns
+the entire connection lifecycle as a hidden subprocess.
+
+**Why It Matters**: This is a market-expansion decision as much as a UX
+decision. The original five providers had a developer ceiling. Removing the
+Terminal requirement opens the product to anyone who has an AI subscription.
+Every additional user who can self-serve is a user who doesn't churn in the
+first ten minutes because they couldn't figure out npm.
+
+---
+
+### The Quick / Guided Badge System
+
+The first design decision was how to frame the provider list. An earlier draft
+had a "For developers" tier for CLI-backed providers. I removed it entirely.
+
+Every provider now shows exactly one of two badges: **Quick** (one tap, sign
+in once, auto-detect) or **Guided** (Tokenomics runs the install as a hidden
+subprocess — no Terminal, but there are a few steps). The chooser legend
+reads: *"Quick — sign in once, you're done. Guided — Tokenomics walks you
+through. No Terminal, no command line."*
+
+The "For developers" tier was wrong for a specific reason: it teaches the user
+that some providers are too complicated for them. That framing exists to manage
+the developer's expectations, not to serve the user. A tool for *people who
+use AI* cannot also be a tool that implies you need to be a developer to use
+it fully. Removing the tier was a positioning decision embedded in a label
+choice.
+
+The Quick/Guided distinction survives because it gives users real information
+without requiring them to understand what a CLI is. Cursor is Quick: Tokenomics
+detects the app already on your Mac. Copilot is Quick: sign in with GitHub
+in a browser, Tokenomics receives the token via deep link. Codex is Guided:
+Tokenomics manages Node.js and the CLI as a hidden subprocess, surfacing only
+a progress bar and a sign-in screen.
+
+---
+
+### Bundling Node.js as Shared Infrastructure
+
+For any provider that runs through an npm CLI, the previous design was
+explicit: "you'll need to install Node.js." That sentence is a drop-off for
+most users.
+
+The V1 decision: Tokenomics ships its own Node.js runtime inside the app
+bundle (`Resources/embedded-node/`). Tokenomics then runs `npm install -g
+<package>` against its private runtime, with `npm_config_prefix` pointed to
+`~/Library/Application Support/Tokenomics/embedded/`. No global Node
+installation, no `~/.claude/bin` pollution, no Terminal window.
+
+The analogy in the plan document is precise: this is Electron shipping
+Chromium. The bundled runtime is shared infrastructure. The CLI bytes still
+come fresh from npm at connect time, so version management is trivial. The
+`EmbeddedCLIRunner` wraps `Process` with environment isolation and
+Combine-streamed stdout/stderr for progress UI — the subprocess exists, but
+it is never the user's problem.
+
+The material UX win: a user can use Codex CLI without knowing Codex CLI exists.
+The product's complexity ceiling is no longer determined by the user's
+familiarity with the command line.
+
+---
+
+### Designing in HTML Before Writing a Line of Swift
+
+Before any implementation, the mockup was built as a high-fidelity
+HTML clickthrough: nine screens, real provider SVGs inlined as `<symbol>`
+definitions, the double-ring hero rendering from the same proportional
+geometry as the small widget (outer ring at 61% of container width, inner
+at 46%). `text-wrap: pretty` on body copy; `text-wrap: balance` on titles.
+`.crow` rows without dividers — vertical padding alone provides the grouping,
+matching the live app's visual pattern exactly.
+
+The Quick/Guided badge contrast is visible in the HTML: Quick rows show a green
+badge (`rgba(29,156,66,0.14)` background, `--green` text); Guided rows show
+a blue one (`rgba(0,122,255,0.14)` background, `--accent` text). The color
+separation makes the distinction scannable at a glance — no reading required.
+
+HTML mocking as design tooling, not prototyping: the mockup was built *as the
+spec*, not a wishful sketch ahead of it. Color tokens were defined using
+`NSColor` semantic names so the HTML tokens map directly to SwiftUI's system
+colors. When the implementation went to work, the questions were already
+answered. The Swift looked like the HTML because the HTML was precise about
+the values.
+
+This is the same approach used for the widget layout system (v2.5.0, v2.7.3).
+It works because a browser's feedback loop — save, reload, see the change —
+is an order of magnitude faster than Xcode's, and because design decisions
+made in isolation from the implementation tend to be optimistic. Designing in
+the actual rendering environment, with the actual constraints, produces
+decisions that survive contact with code.
+
+---
+
+### Reusing the Existing Styling System
+
+The plan document enumerated every existing styling primitive and made reuse
+a hard requirement: `.scaledFont(...)`, `PlanBadgeView`, `smallActionButton`,
+the hint pill pattern, the Gemini segmented-control pattern, the sheet modal
+pattern. The rule was explicit: **no new constants unless extending the system.**
+
+The result is visible in `ConnectorView.swift`. The status badge renders
+`Color(nsColor: .quaternaryLabelColor).opacity(0.4)` — the same backing as
+the hint pill in `AIConnectionsView`. The primary CTA uses
+`.borderedProminent .controlSize(.regular)` — the same as `OnboardingView`'s
+existing "Get Started." The back-navigation label uses `.scaledFont(.caption)`
+— same as the tab reorder drag-handle text elsewhere in the popover.
+
+`ProviderChooserView`'s section headers use `.scaledFont(.caption2)` at
+`.semibold` with `.secondary` foreground — the same token and weight as every
+other section header in the app. The legend hint pill uses
+`Color.white.opacity(0.06/0.4)` — the same quaternary-label treatment seen
+on the `AIConnectionsView` drag hint.
+
+A new screen that feels like the same app is not an accident. It is the result
+of having a documented system and enforcing reuse over invention. The
+`ConnectorContainer` → `WelcomeView` → `ProviderChooserView` → `ConnectorView`
+flow reads like Tokenomics because it shares the same typographic scale, color
+tokens, spacing rhythm, and button patterns as every other view in the app.
+
+---
+
+### Post-Connection Chaining vs. a 48-Hour Nudge
+
+An earlier draft used a timed notification to remind users to add more
+providers — a nudge sent 48 hours after onboarding. That was replaced with
+two structural patterns.
+
+First: every connected state in `ConnectorView` offers two buttons — "Add
+another provider" (returns to the chooser, where the just-connected provider
+shows a green checkmark and "Connected" subtitle) or "I'm all set — show my
+usage" (completes onboarding). The `ConnectorContainer` handles the routing:
+`outcome.addAnother` calls `viewModel.redetectProviders()` and routes back
+to `.chooser`; `outcome.allSet` calls `viewModel.completeOnboarding()` and
+exits the flow.
+
+Second: `WelcomeView`'s footer explicitly tells the user that more providers
+can be added anytime in **Settings → Connections**. The copy is displayed
+before any setup begins, so the mental model is set at the first screen.
+
+Structural reminders over temporal ones: "Add another" is always reachable
+from the connected state; the Settings path is always one click from the gear
+icon. These paths are permanent and zero-friction. A timed notification
+interrupts; a structural path is available exactly when the user decides
+they're ready, not when the app decides to remind them.
+
+---
+
+### Cancel Buttons and the Panel Focus Model
+
+A small but illustrative platform-specific decision: in `MenuBarExtra(.window)`,
+`.bordered` buttons grab key focus when clicked. When a `.bordered` button
+loses key focus — which can happen as soon as the user moves focus elsewhere
+— the floating panel dismisses.
+
+Cancel buttons in `ConnectorView` and `ConnectorView`'s error state use
+`.buttonStyle(.plain)` with `.foregroundStyle(.secondary)`. The comment in
+the code is explicit: *".plain keeps the panel from dismissing on click."*
+
+The mental model behind the decision: a Cancel button should leave the *flow*,
+not leave the *app*. If tapping Cancel dismisses the entire panel, the user
+loses all context — including the popover state they may have been using
+before onboarding. The `.plain` style keeps the panel alive; the `onBack`
+callback routes the user back to the chooser. One click returns them exactly
+to where they were.
+
+This is the class of platform-specific detail that separates "designed for
+macOS" from "designed for iOS and compiled for macOS." It required knowing
+how `MenuBarExtra(.window)` manages focus — and prioritizing the user's
+context over the implementation default.
+
+---
+
+**The Number**: The original onboarding required users to open Terminal and
+successfully run npm commands to connect any CLI-backed provider. Zero-Terminal
+onboarding means the entire path — install → authenticate → usage in the popover
+— is completable by someone who has never used a command line.
+
+**What I Learned**: The "8th-grader test" is a sharper design constraint than
+"intuitive" or "simple" because it has a concrete implied audience. You cannot
+satisfy it by just removing steps — you have to take ownership of the steps
+that remain. Bundling Node.js, managing CLI installs as hidden subprocesses,
+handling device-code flows with native UI — these are steps the original design
+handed to the user and said "figure this out." The new design says: this is
+Tokenomics' problem, not yours.
+
+**Artifacts to Capture**:
+- `federated-petting-swing-mockup.html` — nine-screen clickthrough: Welcome,
+  Chooser with Quick/Guided badges, per-provider connector states (detecting,
+  needsAction, awaitingOAuth, connected, error), post-connection chaining
+- `WelcomeView.swift` — hero ring + two-paragraph footer with provider list
+  and Settings → Connections copy
+- `ProviderChooserView.swift` — section-grouped flat list, Quick/Guided badge
+  per row, legend hint pill, "I'm all set" escape path
+- `ConnectorView.swift` — universal connector chrome: status badge variants
+  (waiting, progress bar, device code block, error), `.plain` cancel buttons,
+  connected-state chaining buttons, `helpLink` to setup guide
+- `ConnectorContainer.swift` — the state machine (`.welcome → .chooser →
+  .connector`), the `makeConnector(for:)` factory, the outcome routing
+- Before/after: old `OnboardingView` flow (Terminal handoff buttons) vs. new
+  ConnectorContainer flow (zero Terminal, hidden subprocess)
+- Quick badge (green) / Guided badge (blue) — the visual proof of the
+  no-tiering decision; same list, different completion paths
+
+**Story Thread**: This is "The Approach" arc landing in "The Build." The
+Connections page redesign (2026-03-17) identified the right model for an
+expanding provider landscape. This release delivers the onboarding side of
+that model — the path from "I just installed Tokenomics" to "I have live
+usage data," for anyone, regardless of their technical background.
+
+---
