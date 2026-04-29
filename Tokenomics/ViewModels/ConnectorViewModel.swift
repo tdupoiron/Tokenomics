@@ -118,6 +118,29 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         step = .detecting
     }
 
+    /// Tap Continue in `.previewExternalSteps` — connector advances its internal
+    /// phase (e.g. Window 3 → Window 4 → opens Terminal → Window 5).
+    func tappedAdvancePreview() {
+        Task { [connector] in
+            await connector.advancePreview()
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            let current = await self.connector.currentStep()
+            self.step = current
+        }
+    }
+
+    /// Tap "I'm signed in — check now" in `.awaitingExternalAuth` — kicks the
+    /// polling loop awake immediately instead of waiting for the next tick.
+    func tappedRecheck() {
+        Task { [weak self] in
+            guard let self else { return }
+            let current = await self.connector.currentStep()
+            self.step = current
+        }
+    }
+
     /// Tap on the recovery button when in `.failed` state.
     func tappedRecovery() {
         // Kick the polling loop back into life with a fresh detection.
@@ -167,7 +190,8 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
     private nonisolated func isWaitingState(_ step: ConnectorStep) -> Bool {
         switch step {
         case .waitingForExternalApp, .installing, .installingDependency,
-             .awaitingOAuth, .awaitingUserConfirm, .confirmingInstall:
+             .awaitingOAuth, .awaitingUserConfirm, .confirmingInstall,
+             .awaitingExternalAuth:
             return true
         default:
             return false

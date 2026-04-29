@@ -65,6 +65,22 @@ enum ConnectorStep: Sendable, Equatable {
     /// (codex, gemini). Lets the view label "Installing Node.js…" vs "Installing Codex CLI…".
     case installingDependency(name: String, progress: Double?)
 
+    /// Preview screen: explains a multi-step thing the user is about to do
+    /// somewhere outside Tokenomics (e.g. Claude Code's sign-in wizard).
+    /// Used for Windows 3 and 4 of the Anthropic flow.
+    /// `primaryLabel` controls the button text — "Continue" for Window 3,
+    /// "Open Terminal" for Window 4.
+    case previewExternalSteps(
+        headline: String,
+        body: String,
+        items: [String],
+        primaryLabel: String
+    )
+
+    /// Tokenomics has handed off to an external CLI auth flow and is polling
+    /// for the credentials file to appear. Used for Window 5 of the Anthropic flow.
+    case awaitingExternalAuth(headline: String, body: String)
+
     /// Something went wrong; show recovery affordance.
     case failed(ConnectorError)
 }
@@ -150,6 +166,12 @@ protocol ProviderConnector: Actor {
     /// User tapped "I already have this" on the `.confirmingInstall` step. The
     /// connector should skip the pending install and re-run prerequisite detection.
     func skipInstall() async
+
+    /// User tapped Continue / the primary button on a `.previewExternalSteps` step.
+    /// The connector advances its internal phase to the next preview or hands off
+    /// to an external tool. Default implementation is a no-op so connectors that
+    /// don't use preview steps don't need to implement this.
+    func advancePreview() async
 }
 
 // MARK: - Default no-op implementations
@@ -160,4 +182,7 @@ extension ProviderConnector {
 
     /// Default no-op — connectors that don't use `.confirmingInstall` don't need this.
     func skipInstall() async {}
+
+    /// Default no-op — only `ClaudeConnector` currently uses preview steps.
+    func advancePreview() async {}
 }

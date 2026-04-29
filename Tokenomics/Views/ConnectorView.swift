@@ -86,6 +86,22 @@ struct ConnectorView: View {
                 onContinue: { viewModel.tappedConfirmInstall() },
                 onSkip: { viewModel.tappedSkipInstall() }
             )
+        case .previewExternalSteps(let headline, let body, let items, let primaryLabel):
+            PreviewExternalStepsView(
+                headline: headline,
+                introText: body,
+                items: items,
+                primaryLabel: primaryLabel,
+                onPrimary: { viewModel.tappedAdvancePreview() },
+                onBack: onBack
+            )
+        case .awaitingExternalAuth(let headline, let body):
+            AwaitExternalAuthView(
+                headline: headline,
+                instructionText: body,
+                onCheckNow: { viewModel.tappedRecheck() },
+                onBack: onBack
+            )
         default:
             inProgressState
         }
@@ -144,6 +160,12 @@ struct ConnectorView: View {
             return "One quick confirmation before we continue."
         case .awaitingOAuth:
             return "Sign in in your browser to continue."
+        case .previewExternalSteps:
+            // Full-screen replacement — subtext not shown.
+            return ""
+        case .awaitingExternalAuth:
+            // Full-screen replacement — subtext not shown.
+            return ""
         case .connected:
             return "Connected."
         case .failed:
@@ -154,8 +176,8 @@ struct ConnectorView: View {
     @ViewBuilder
     private var statusPill: some View {
         switch viewModel.step {
-        // .detecting and .confirmingInstall are full-screen replacements — no pill.
-        case .detecting, .confirmingInstall:
+        // These steps are full-screen replacements — no status pill.
+        case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth:
             EmptyView()
         case .needsAction:
             // No pill — primary CTA explains the next action.
@@ -222,7 +244,7 @@ struct ConnectorView: View {
         switch viewModel.step {
         // These steps own their own buttons — the action stack won't render for them
         // because `content` routes them to dedicated full-screen views.
-        case .detecting, .confirmingInstall:
+        case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth:
             return ""
         case .needsAction:
             return primaryCTA(for: viewModel.providerId)
