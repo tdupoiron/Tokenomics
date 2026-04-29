@@ -4,6 +4,11 @@ import SwiftUI
 /// Owns the lifecycle of the active `ConnectorViewModel` and routes outcome
 /// callbacks (Add another / I'm all set) back into the chooser or out to
 /// onboarding completion.
+///
+/// When `OnboardingTarget.shared.preselected` is set before the window opens,
+/// the container skips Welcome and Chooser and lands directly on that provider's
+/// connector flow. Both "Add another" and "I'm all set" outcomes close the window
+/// in that case, since the chooser context doesn't apply.
 struct ConnectorContainer: View {
     @ObservedObject var viewModel: UsageViewModel
 
@@ -13,6 +18,10 @@ struct ConnectorContainer: View {
 
     @State private var screen: Screen = .welcome
     @State private var activeConnector: ConnectorViewModel?
+    /// True when the current session was started via a pre-targeted provider link
+    /// (Install / Sign In / Reconnect from Settings or popover). Used to treat
+    /// "Add another" as "close window" rather than routing back to chooser.
+    @State private var isPreTargeted = false
 
     enum Screen {
         case welcome
@@ -49,6 +58,14 @@ struct ConnectorContainer: View {
         // Reset to chooser on re-entry so users who completed or cancelled a
         // previous flow don't land on a stale connector screen.
         .onAppear {
+            // Pre-target takes priority: if a provider was queued, route there now.
+            if let targetProvider = OnboardingTarget.shared.preselected {
+                OnboardingTarget.shared.preselected = nil
+                isPreTargeted = true
+                open(provider: targetProvider)
+                return
+            }
+
             if screen == .connector && activeConnector == nil {
                 screen = .chooser
             }
@@ -58,6 +75,13 @@ struct ConnectorContainer: View {
                 screen = .chooser
             }
         }
+        // Also react when the window is already open and a pre-target arrives live.
+        .onReceive(OnboardingTarget.shared.$preselected) { targetProvider in
+            guard let targetProvider else { return }
+            OnboardingTarget.shared.preselected = nil
+            isPreTargeted = true
+            open(provider: targetProvider)
+        }
     }
 
     // MARK: - Navigation
@@ -66,12 +90,17 @@ struct ConnectorContainer: View {
         let connector = makeConnector(for: provider)
         activeConnector = ConnectorViewModel(
             connector: connector,
-            onOutcome: { outcome in
+            onOutcome: { [self] outcome in
                 switch outcome {
                 case .addAnother:
-                    screen = .chooser
-                    activeConnector = nil
-                    viewModel.redetectProviders()
+                    if isPreTargeted {
+                        // Pre-targeted sessions have no chooser context — treat as done.
+                        completeOnboarding()
+                    } else {
+                        screen = .chooser
+                        activeConnector = nil
+                        viewModel.redetectProviders()
+                    }
                 case .allSet:
                     completeOnboarding()
                 }
@@ -83,6 +112,7 @@ struct ConnectorContainer: View {
     private func completeOnboarding() {
         viewModel.completeOnboarding()
         activeConnector = nil
+        isPreTargeted = false
         onComplete()
     }
 
