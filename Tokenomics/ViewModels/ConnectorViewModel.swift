@@ -45,8 +45,28 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         case .connected:
             return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
                     Item(label: "Signing in", state: c), Item(label: "Connection check", state: a)]
-        case .failed, .waitingForExternalApp:
+        case .waitingForExternalApp:
             return []
+        case .failed(let error):
+            // Keep the stepper visible on failure so users can see which step failed.
+            // Infer the failed step from the error type — avoids storing history.
+            let e: S = .error
+            switch error {
+            case .cliInstallFailed, .homebrewInstallCancelled,
+                 .homebrewNotReachable, .caskInstallFailed, .missingPrerequisite:
+                // Step 2 (Installing) failed
+                return [Item(label: "Checking", state: c), Item(label: "Installing", state: e),
+                        Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
+            case .oauthCancelled, .oauthFailed, .detectionTimeout,
+                 .automationPermissionDenied, .appNotFound:
+                // Step 3 (Signing in) failed
+                return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
+                        Item(label: "Signing in", state: e), Item(label: "Connection check", state: u)]
+            default:
+                // Unknown/keychain — show step 1 as error (detection phase)
+                return [Item(label: "Checking", state: e), Item(label: "Installing", state: u),
+                        Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
+            }
         }
     }
 

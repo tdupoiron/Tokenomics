@@ -14,6 +14,8 @@ struct OnboardingStepperItem: Hashable {
         case active
         /// Not yet reached — muted bordered circle.
         case upcoming
+        /// Failed at this step — red circle and label; subsequent steps show as upcoming.
+        case error
     }
 }
 
@@ -93,6 +95,10 @@ struct OnboardingStepper: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white)
+            case .error:
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
             case .active, .upcoming:
                 Text("\(index)")
                     .font(.system(size: 11, weight: .semibold))
@@ -114,12 +120,20 @@ struct OnboardingStepper: View {
     /// Horizontal line between two step slots. Color tracks the left segment's state.
     private func connectorLine(leftState: OnboardingStepperItem.State) -> some View {
         Rectangle()
-            .fill(leftState == .completed ? Color.accentColor : Color(nsColor: .separatorColor))
+            .fill(lineColor(leftState))
             .frame(height: 2)
             // Optical vertical alignment: center the line on the mark circles,
             // which are 22pt tall; the labels hang below.
             .padding(.top, (markSize - 2) / 2)
-            .animation(.easeInOut(duration: 0.2), value: leftState == .completed)
+            .animation(.easeInOut(duration: 0.2), value: leftState)
+    }
+
+    private func lineColor(_ state: OnboardingStepperItem.State) -> Color {
+        switch state {
+        case .completed: return .accentColor
+        case .error: return Color(nsColor: .systemRed)
+        case .active, .upcoming: return Color(nsColor: .separatorColor)
+        }
     }
 
     // MARK: - Color helpers
@@ -127,6 +141,7 @@ struct OnboardingStepper: View {
     private func markFill(_ state: OnboardingStepperItem.State) -> Color {
         switch state {
         case .completed, .active: return .accentColor
+        case .error: return Color(nsColor: .systemRed)
         case .upcoming: return Color(nsColor: .controlBackgroundColor)
         }
     }
@@ -134,6 +149,7 @@ struct OnboardingStepper: View {
     private func markBorder(_ state: OnboardingStepperItem.State) -> Color {
         switch state {
         case .completed, .active: return .accentColor
+        case .error: return Color(nsColor: .systemRed)
         case .upcoming: return Color(nsColor: .separatorColor)
         }
     }
@@ -142,6 +158,7 @@ struct OnboardingStepper: View {
         switch state {
         case .active: return Color.primary
         case .completed: return Color.secondary
+        case .error: return Color(nsColor: .systemRed)
         case .upcoming: return Color(nsColor: .tertiaryLabelColor)
         }
     }
@@ -176,7 +193,18 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Checking", state: .completed),
         OnboardingStepperItem(label: "Installing", state: .completed),
         OnboardingStepperItem(label: "Signing in", state: .completed),
-        OnboardingStepperItem(label: "Done", state: .active),
+        OnboardingStepperItem(label: "Connection check", state: .active),
+    ])
+    .padding(24)
+    .frame(width: 480)
+}
+
+#Preview("Stepper — Install failed") {
+    OnboardingStepper(items: [
+        OnboardingStepperItem(label: "Checking", state: .completed),
+        OnboardingStepperItem(label: "Installing", state: .error),
+        OnboardingStepperItem(label: "Signing in", state: .upcoming),
+        OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(24)
     .frame(width: 480)
