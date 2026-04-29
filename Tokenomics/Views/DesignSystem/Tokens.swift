@@ -25,14 +25,16 @@ extension Color {
 
 // MARK: - Typography
 //
-// Onboarding type scale verbatim from mockup CSS (lines 53–59):
-//   --fs-h1:      28px  (serif, regular weight)
-//   --fs-h2:      22px  (sans, weight 600)
-//   --fs-h3:      18px  (sans, weight 600)
-//   --fs-body-lg: 17px  (sans, weight 400)
-//   --fs-body:    15px  (sans, weight 400, 1.55 line-height)
-//   --fs-small:   13px  (sans, weight 400)
-//   --fs-micro:   11px  (sans, weight 500)
+// Onboarding type scale from mockup CSS — the *applied* class sizes, not the
+// :root variables (lines 53–59 define some variables that no class consumes;
+// the .h1/.h3/.lede classes at lines 335–344 redefine the rendered sizes):
+//   .h1   → 30px  (serif, regular weight)        [line 335; used line 1139, 1822]
+//   .h2   → 22px  (sans, weight 600)             [line 336]
+//   .h3   → 17px  (sans, weight 600)             [line 337]
+//   .lede → 15px  (sans, weight 400, 1.55 lh)    [lines 338–344]
+//   --fs-body:  15px                              [line 57; used in body { }]
+//   --fs-small: 13px                              [line 58]
+//   --fs-micro: 11px                              [line 59]
 //
 // PostScript family names verified against font binaries via fontTools nameID 16:
 //   HedvigLettersSerif.ttf  → "Hedvig Letters Serif"
@@ -43,20 +45,20 @@ extension Color {
 
 extension Font {
     /// Welcome hero and Done celebration headline.
-    /// Mockup: `.h-serif h1` — Hedvig Letters Serif, --fs-h1 28px.
-    static let tokenSerifH1 = Font.custom("Hedvig Letters Serif", size: 28, relativeTo: .title)
+    /// Mockup: `.h-serif h1` — Hedvig Letters Serif 30px (line 335).
+    static let tokenSerifH1 = Font.custom("Hedvig Letters Serif", size: 30, relativeTo: .title)
 
     /// Every flow-screen headline (Detect, Install Homebrew, Sign in…).
-    /// Mockup: `.h-sans h2` — DM Sans --fs-h2 22px weight 600.
+    /// Mockup: `.h-sans h2` — DM Sans 22px weight 600 (line 336).
     static let tokenSansH2 = Font.custom("DM Sans", size: 22, relativeTo: .title2).weight(.semibold)
 
     /// Sub-section headings inside a screen.
-    /// Mockup: `.h-sans h3` — DM Sans --fs-h3 18px weight 600.
-    static let tokenSansH3 = Font.custom("DM Sans", size: 18, relativeTo: .title3).weight(.semibold)
+    /// Mockup: `.h-sans h3` — DM Sans 17px weight 600 (line 337).
+    static let tokenSansH3 = Font.custom("DM Sans", size: 17, relativeTo: .title3).weight(.semibold)
 
     /// Body lead paragraph under a headline (`.lede` in the mockup).
-    /// Mockup: --fs-body-lg 17px.
-    static let tokenLede = Font.custom("DM Sans", size: 17, relativeTo: .body)
+    /// Mockup: 15px / 1.55 line-height (lines 338–344).
+    static let tokenLede = Font.custom("DM Sans", size: 15, relativeTo: .body)
 
     /// Default body copy. Mockup: --fs-body 15px.
     static let tokenBody = Font.custom("DM Sans", size: 15, relativeTo: .body)
