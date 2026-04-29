@@ -103,29 +103,41 @@ enum BrandRadius {
 
 // MARK: - Preview
 
+private struct BrandSwatch: Identifiable {
+    let id: String
+    let color: Color
+}
+
+private let brandPalette: [BrandSwatch] = [
+    .init(id: "BrandBg",            color: .brandBg),
+    .init(id: "BrandBg2",           color: .brandBg2),
+    .init(id: "BrandSurface",       color: .brandSurface),
+    .init(id: "BrandSurface2",      color: .brandSurface2),
+    .init(id: "BrandBorder",        color: .brandBorder),
+    .init(id: "BrandBorderStrong",  color: .brandBorderStrong),
+    .init(id: "BrandText",          color: .brandText),
+    .init(id: "BrandTextMuted",     color: .brandTextMuted),
+    .init(id: "BrandTextSubtle",    color: .brandTextSubtle),
+    .init(id: "BrandAccent",        color: .brandAccent),
+    .init(id: "BrandAccentInk",     color: .brandAccentInk),
+    .init(id: "BrandSuccess",       color: .brandSuccess),
+    .init(id: "BrandWarning",       color: .brandWarning),
+    .init(id: "BrandDanger",        color: .brandDanger),
+]
+
 #Preview("Brand color palette") {
     ScrollView {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach([
-                ("BrandBg", Color.brandBg),
-                ("BrandBg2", Color.brandBg2),
-                ("BrandSurface", Color.brandSurface),
-                ("BrandSurface2", Color.brandSurface2),
-                ("BrandBorder", Color.brandBorder),
-                ("BrandBorderStrong", Color.brandBorderStrong),
-                ("BrandText", Color.brandText),
-                ("BrandTextMuted", Color.brandTextMuted),
-                ("BrandTextSubtle", Color.brandTextSubtle),
-                ("BrandAccent", Color.brandAccent),
-                ("BrandAccentInk", Color.brandAccentInk),
-                ("BrandSuccess", Color.brandSuccess),
-                ("BrandWarning", Color.brandWarning),
-                ("BrandDanger", Color.brandDanger),
-            ], id: \.0) { name, color in
+            ForEach(brandPalette) { swatch in
                 HStack {
-                    RoundedRectangle(cornerRadius: 6).fill(color).frame(width: 60, height: 32)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.brandBorder, lineWidth: 1))
-                    Text(name).font(.tokenSmall)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(swatch.color)
+                        .frame(width: 60, height: 32)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.brandBorder, lineWidth: 1)
+                        )
+                    Text(swatch.id).font(.tokenSmall)
                 }
             }
         }
