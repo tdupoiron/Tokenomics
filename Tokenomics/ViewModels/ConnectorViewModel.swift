@@ -70,14 +70,7 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
     /// Polling cadence while detection / install / OAuth is in progress.
     private static let pollInterval: TimeInterval = 1.5
 
-    /// Hard ceiling on how long we'll wait without any state change before
-    /// surfacing a `.detectionTimeout` error.
-    ///
-    /// 180s covers the worst case: npm install (~15s on fast network, ~60s on slow)
-    /// followed by OAuth handoff where the user takes a minute to sign in.
-    /// The threshold is state-independent for simplicity — the connector's
-    /// `cancel()` path handles explicit user bail-outs before the timeout fires.
-    private static let stuckThreshold: TimeInterval = 180
+    // No static stuckThreshold — per-state thresholds are computed by stuckThreshold(for:).
 
     // MARK: - Init
 
@@ -170,9 +163,15 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
 
     /// Tap on the recovery button when in `.failed` state.
     func tappedRecovery() {
-        // Kick the polling loop back into life with a fresh detection.
-        step = .detecting
-        if pollingTask == nil { start() }
+        // Clear-failure must complete before polling resumes — otherwise the very
+        // first `currentStep()` call sees stale `failedState` and bounces back to
+        // `.failed` before the connector can re-detect.
+        Task { [connector, weak self] in
+            await connector.clearFailure()
+            guard let self else { return }
+            self.step = .detecting
+            if self.pollingTask == nil { self.start() }
+        }
     }
 
     /// Connected — user wants to add another provider.
@@ -188,7 +187,7 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
     // MARK: - Polling
 
     private func runPollingLoop() async {
-        let started = Date()
+        var stateEnteredAt = Date()
         var lastStep: ConnectorStep = .detecting
 
         while !Task.isCancelled {
@@ -199,18 +198,35 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             if case .connected = current { return }
             if case .failed = current { return }
 
-            // Stuck-detection: if the step hasn't changed in `stuckThreshold` and
-            // we're in a waiting state, surface a timeout so the user has an
+            // Reset the clock whenever the state changes so slow user-driven
+            // flows (OAuth in browser, reading docs) don't fire a spurious timeout.
+            if current != lastStep {
+                lastStep = current
+                stateEnteredAt = Date()
+            }
+
+            // Stuck-detection: if the step hasn't changed in the per-state threshold
+            // and we're in a waiting state, surface a timeout so the user has an
             // actionable next step.
-            if current == lastStep,
-               Date().timeIntervalSince(started) > Self.stuckThreshold,
+            if Date().timeIntervalSince(stateEnteredAt) > stuckThreshold(for: current),
                isWaitingState(current) {
                 await MainActor.run { self.step = .failed(.detectionTimeout) }
                 return
             }
-            lastStep = current
 
             try? await Task.sleep(nanoseconds: UInt64(Self.pollInterval * 1_000_000_000))
+        }
+    }
+
+    /// Per-state stuck threshold.
+    /// User-driven auth states get 10 minutes because the user is in their browser.
+    /// Install/detection states get 3 minutes — they should complete automatically.
+    private nonisolated func stuckThreshold(for step: ConnectorStep) -> TimeInterval {
+        switch step {
+        case .awaitingOAuth, .awaitingExternalAuth, .awaitingUserConfirm:
+            return 600  // 10 min — user is in their browser
+        default:
+            return 180  // 3 min — install/detection should be much faster
         }
     }
 

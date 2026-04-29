@@ -30,12 +30,30 @@ struct TokenomicsApp: App {
 
         // MARK: - Onboarding Window
 
-        WindowGroup(id: "onboarding") {
+        onboardingWindow
+    }
+
+    /// Onboarding window with restoration disabled on macOS 15+.
+    ///
+    /// `@SceneBuilder` doesn't support `if #available`, so the conditional is
+    /// applied in a plain function that returns `any Scene`. On macOS 14 the
+    /// belt is the `.accessory` activation policy set in `applicationDidFinishLaunching`.
+    private var onboardingWindow: some Scene {
+        onboardingScene()
+    }
+
+    private func onboardingScene() -> some Scene {
+        let base = WindowGroup(id: "onboarding") {
             OnboardingWindowRoot(viewModel: viewModel)
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 680, height: 580)
         .windowStyle(.titleBar)
+
+        if #available(macOS 15.0, *) {
+            return base.restorationBehavior(.disabled)
+        }
+        return base
     }
 }
 
@@ -65,6 +83,10 @@ struct OnboardingWindowRoot: View {
 /// which fires incorrectly in MenuBarExtra and causes performance issues.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Belt-and-suspenders: ensure we start as a menu-bar agent even if SwiftUI
+        // auto-restored an onboarding window from a previous session.
+        NSApplication.shared.setActivationPolicy(.accessory)
+
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleGetURL(_:withReplyEvent:)),

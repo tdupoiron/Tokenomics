@@ -124,6 +124,11 @@ actor CodexConnector: ProviderConnector {
         failedState = nil
     }
 
+    func clearFailure() async {
+        failedState = nil
+        activePhase = .none
+    }
+
     func confirmInstall() async {
         guard case .confirmingInstall(let kind) = activePhase else { return }
         switch kind {

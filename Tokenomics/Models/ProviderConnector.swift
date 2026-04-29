@@ -223,6 +223,12 @@ protocol ProviderConnector: Actor {
     /// to an external tool. Default implementation is a no-op so connectors that
     /// don't use preview steps don't need to implement this.
     func advancePreview() async
+
+    /// Clears any recorded failure so the connector returns a live step on the
+    /// next `currentStep()` call. Called by `ConnectorViewModel.tappedRecovery()`
+    /// before restarting the polling loop — without this, the first poll after
+    /// retry immediately sees the stale `failedState` and bounces back to `.failed`.
+    func clearFailure() async
 }
 
 // MARK: - Default no-op implementations
@@ -236,4 +242,7 @@ extension ProviderConnector {
 
     /// Default no-op — only `ClaudeConnector` currently uses preview steps.
     func advancePreview() async {}
+
+    /// Default no-op — connectors that never set `failedState` don't need this.
+    func clearFailure() async {}
 }
