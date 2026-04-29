@@ -13,12 +13,15 @@ struct AIConnectionsView: View {
     @State private var activeConnectorVM: ConnectorViewModel?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.tokenomicsTextSize) private var textSize
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
             header
 
             Divider()
+
+            helpBanner
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -118,6 +121,38 @@ struct AIConnectionsView: View {
             )
         case .midjourney, .suno, .udio:
             return ClaudeConnector() // Defensive — these rows are gated by hasAPI=false
+        }
+    }
+
+    // MARK: - Help Banner
+
+    /// Quiet recovery affordance for users who land on Connections looking
+    /// to add a provider but want the guided walk-through. Sits above the
+    /// scroll so it stays visible regardless of list length.
+    private var helpBanner: some View {
+        HStack(spacing: 6) {
+            Text("Need help?")
+                .scaledFont(.caption2)
+                .foregroundStyle(.secondary)
+
+            Button {
+                openWindow(id: "onboarding")
+            } label: {
+                Text("Open guided setup →")
+                    .scaledFont(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.accentColor)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor))
+                .frame(height: 0.5)
         }
     }
 
