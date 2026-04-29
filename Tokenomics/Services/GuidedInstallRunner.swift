@@ -27,8 +27,7 @@ enum GuidedInstallError: Error, LocalizedError {
 
 /// Actor wrapping `Process` for running system commands as hidden subprocesses.
 ///
-/// Unlike `EmbeddedCLIRunner`, this runner works with any system binary — brew,
-/// npm, node, gh — rather than the bundled Node.js runtime. Callers supply the
+/// Works with any system binary — brew, npm, node, gh. Callers supply the
 /// full path to the executable so there is no PATH-lookup ambiguity.
 ///
 /// npm installs are routed to a per-user prefix (`~/.tokenomics-cli/`) so they
@@ -79,7 +78,7 @@ actor GuidedInstallRunner {
     ///
     /// Parses stdout/stderr for OAuth device-code URLs and emits
     /// `.deviceCode(url:code:)` events when found, matching the pattern
-    /// established by `EmbeddedCLIRunner.runCLI`.
+    /// established by the legacy embedded-CLI runner.
     ///
     /// - Parameters:
     ///   - executable: Full path to the binary (e.g. `/opt/homebrew/bin/gh`).
@@ -423,7 +422,7 @@ actor GuidedInstallRunner {
         let stdoutTask = Task {
             await self.streamLines(from: stdoutPipe.fileHandleForReading) { line in
                 continuation.yield(.stdout(line))
-                if let event = EmbeddedCLIRunner.parseDeviceCode(from: line) {
+                if let event = CLIOutputParser.parseDeviceCode(from: line) {
                     continuation.yield(event)
                 }
             }
@@ -432,7 +431,7 @@ actor GuidedInstallRunner {
         let stderrTask = Task {
             await self.streamLines(from: stderrPipe.fileHandleForReading) { line in
                 continuation.yield(.stderr(line))
-                if let event = EmbeddedCLIRunner.parseDeviceCode(from: line) {
+                if let event = CLIOutputParser.parseDeviceCode(from: line) {
                     continuation.yield(event)
                 }
             }

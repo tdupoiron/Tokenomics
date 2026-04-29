@@ -102,6 +102,22 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         }
     }
 
+    /// Tap on "Continue" in the `.confirmingInstall` step.
+    func tappedConfirmInstall() {
+        Task { [connector] in
+            await connector.confirmInstall()
+        }
+    }
+
+    /// Tap on "I already have this" in the `.confirmingInstall` step.
+    func tappedSkipInstall() {
+        Task { [connector] in
+            await connector.skipInstall()
+        }
+        // Immediately show detecting so the UI doesn't stay on the confirm screen.
+        step = .detecting
+    }
+
     /// Tap on the recovery button when in `.failed` state.
     func tappedRecovery() {
         // Kick the polling loop back into life with a fresh detection.
@@ -150,7 +166,8 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
 
     private nonisolated func isWaitingState(_ step: ConnectorStep) -> Bool {
         switch step {
-        case .waitingForExternalApp, .installing, .awaitingOAuth, .awaitingUserConfirm:
+        case .waitingForExternalApp, .installing, .installingDependency,
+             .awaitingOAuth, .awaitingUserConfirm, .confirmingInstall:
             return true
         default:
             return false

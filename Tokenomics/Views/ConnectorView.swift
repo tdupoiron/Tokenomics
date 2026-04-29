@@ -77,6 +77,15 @@ struct ConnectorView: View {
             connectedState(plan: plan)
         case .failed(let error):
             errorState(error: error)
+        case .detecting:
+            DetectStep(message: detectMessage(for: viewModel.providerId))
+        case .confirmingInstall(let title, let body):
+            ConfirmInstallStep(
+                title: title,
+                description: body,
+                onContinue: { viewModel.tappedConfirmInstall() },
+                onSkip: { viewModel.tappedSkipInstall() }
+            )
         default:
             inProgressState
         }
@@ -125,8 +134,12 @@ struct ConnectorView: View {
             return needsActionSubtext(for: viewModel.providerId)
         case .waitingForExternalApp:
             return "Waiting for \(viewModel.providerName) to install…"
+        case .installingDependency(let name, _):
+            return "Installing \(name)…"
         case .installing:
             return "Setting up — only happens once."
+        case .confirmingInstall:
+            return "Almost there."
         case .awaitingUserConfirm:
             return "One quick confirmation before we continue."
         case .awaitingOAuth:
@@ -141,13 +154,16 @@ struct ConnectorView: View {
     @ViewBuilder
     private var statusPill: some View {
         switch viewModel.step {
-        case .detecting:
-            statusBadge(icon: .waiting, text: "Checking your Mac…")
+        // .detecting and .confirmingInstall are full-screen replacements — no pill.
+        case .detecting, .confirmingInstall:
+            EmptyView()
         case .needsAction:
             // No pill — primary CTA explains the next action.
             EmptyView()
         case .waitingForExternalApp:
             statusBadge(icon: .waiting, text: "Waiting for \(viewModel.providerName) — we'll detect it as soon as it's installed.")
+        case .installingDependency(_, let progress):
+            installingPill(progress: progress)
         case .installing(let progress):
             installingPill(progress: progress)
         case .awaitingUserConfirm(let message):
@@ -204,12 +220,16 @@ struct ConnectorView: View {
 
     private var primaryCTALabel: String {
         switch viewModel.step {
-        case .detecting:
-            return "Checking…"
+        // These steps own their own buttons — the action stack won't render for them
+        // because `content` routes them to dedicated full-screen views.
+        case .detecting, .confirmingInstall:
+            return ""
         case .needsAction:
             return primaryCTA(for: viewModel.providerId)
         case .waitingForExternalApp:
             return "Check now"
+        case .installingDependency:
+            return "Installing…"
         case .installing:
             return "Setting up…"
         case .awaitingUserConfirm:
@@ -411,6 +431,14 @@ struct ConnectorView: View {
         case .gemini: return "Sign in with Google"
         case .stableDiffusion, .runway, .elevenlabs: return "Enter API key"
         default: return "Connect"
+        }
+    }
+
+    private func detectMessage(for provider: ProviderId) -> String {
+        switch provider {
+        case .codex: return "Checking for Homebrew, Node.js, and the Codex CLI…"
+        case .gemini: return "Checking for Homebrew, Node.js, and the Gemini CLI…"
+        default: return "Checking your Mac…"
         }
     }
 }

@@ -173,9 +173,9 @@ actor GeminiProvider: UsageProvider {
             "/opt/homebrew/bin/gemini",
             "/usr/local/bin/gemini",
             "\(NSHomeDirectory())/.local/bin/gemini",
-            // Also check the Tokenomics-private embedded install location used by
-            // EmbeddedCLIRunner — so detection succeeds after a hidden npm install.
-            EmbeddedCLIRunner.embeddedBinDir.appendingPathComponent("gemini").path
+            // Also check the Tokenomics per-user npm prefix (~/.tokenomics-cli/bin/)
+            // so detection succeeds after GuidedInstallRunner installs the CLI.
+            GuidedInstallRunner.npmBinDir.appendingPathComponent("gemini").path
         ]
         return paths.contains { fm.fileExists(atPath: $0) }
     }

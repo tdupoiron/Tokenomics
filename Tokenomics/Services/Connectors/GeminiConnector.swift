@@ -4,23 +4,19 @@ import os
 
 /// Guided-mode connector for Google's Gemini CLI.
 ///
-/// Flow is parallel to `CodexConnector` — see that file for architecture notes.
+/// Flow is parallel to `CodexConnector` — see that file for full architecture notes.
 ///
 /// Gemini specifics vs Codex:
 ///   - npm package: `@google/gemini-cli`
 ///   - Auth file: `~/.gemini/oauth_creds.json`
-///   - Login trigger: `gemini` (no explicit `login` subcommand — the CLI starts
-///     an OAuth flow on first invocation when no creds are found). Alternatively,
-///     `gemini --help` or any benign subcommand also triggers auth.
-///   - Device code format: Google's device-code flow prints a URL like
-///     `https://accounts.google.com/o/oauth2/device/...` and instructs the user
-///     to open it. There is no separate short code displayed. We use
-///     `.awaitingOAuth(code: nil)` and rely on the browser tab Gemini opens
-///     automatically.
+///   - Login trigger: `gemini` (no explicit `login` subcommand — the CLI starts an OAuth
+///     flow on first invocation when no creds are found).
+///   - Confirm-prompt interception: Gemini prints "Do you want to continue? [Y/n]:" before
+///     opening the browser. We park in `.awaitingUserConfirm` so the user's click in
+///     Tokenomics' UI — not an auto-answered terminal prompt — is what grants consent.
 ///
-/// Policy note: we call neither `googleapis.com` nor any Google backend directly.
-/// Tokenomics runs `gemini` as a subprocess (the official CLI auth flow) and
-/// reads the local `oauth_creds.json` it produces. This is Path C — safe.
+/// Policy note: Tokenomics runs `gemini` as a subprocess (the official CLI auth flow) and
+/// reads the local `oauth_creds.json` it produces. No Google backend calls are made directly.
 actor GeminiConnector: ProviderConnector {
     nonisolated let id: ProviderId = .gemini
     nonisolated let pipelineKind: ConnectorPipelineKind = .multiStep
@@ -29,15 +25,26 @@ actor GeminiConnector: ProviderConnector {
     private static let npmPackage = "@google/gemini-cli"
 
     private let provider: GeminiProvider
-    private let runner: EmbeddedCLIRunner
+    private let runner: GuidedInstallRunner
 
-    // MARK: - In-flight state
+    // MARK: - Internal state machine
 
     private enum ActivePhase {
         case none
-        case installing(progress: Double?)
+        /// Waiting for user to confirm before installing a prerequisite or the CLI itself.
+        case confirmingInstall(PrerequisiteKind)
+        /// Installing a prerequisite (Homebrew, Node.js).
+        case installingDependency(name: String, progress: Double?)
+        /// Installing the primary Gemini CLI.
+        case installingCLI(progress: Double?)
+        /// `gemini` subprocess is running; waiting for the [Y/n] confirm prompt.
         case awaitingUserConfirm(message: String)
+        /// User confirmed; waiting for OAuth browser flow to complete.
         case awaitingOAuth(code: String?)
+    }
+
+    private enum PrerequisiteKind {
+        case homebrew, node, geminiCLI
     }
 
     private var activePhase: ActivePhase = .none
@@ -47,15 +54,11 @@ actor GeminiConnector: ProviderConnector {
     /// exits or is cancelled.
     private var pendingStdinWrite: (@Sendable (String) -> Void)?
 
-    /// Confirmation prompt we look for in gemini's stdout. The CLI prints
-    /// "Opening authentication page in your browser. Do you want to continue? [Y/n]:"
-    /// before any browser open, so seeing this substring is our signal to
-    /// pause and ask the user explicitly via Tokenomics' UI.
+    /// Substring Gemini prints in its TTY-interactive confirm prompt.
     private static let geminiConfirmPromptMarker = "Do you want to continue?"
 
-    /// Tokenomics-native message we surface in the awaitingUserConfirm step —
-    /// rephrases gemini's terminal prompt for a GUI audience and makes the
-    /// out-of-app side effect explicit.
+    /// Copy shown in Tokenomics' confirm pill (`.awaitingUserConfirm`) — rephrases
+    /// gemini's terminal prompt for a GUI audience.
     private static let confirmDisplayMessage =
         "Tokenomics will open Google's sign-in page in your browser to connect Gemini. Continue?"
 
@@ -63,22 +66,23 @@ actor GeminiConnector: ProviderConnector {
 
     init(provider: GeminiProvider = GeminiProvider()) {
         self.provider = provider
-        self.runner = EmbeddedCLIRunner()
+        self.runner = GuidedInstallRunner()
     }
 
     // MARK: - ProviderConnector
 
     func currentStep() async -> ConnectorStep {
         switch activePhase {
-        case .installing(let progress):
+        case .confirmingInstall(let kind):
+            return confirmStep(for: kind)
+        case .installingDependency(let name, let progress):
+            return .installingDependency(name: name, progress: progress)
+        case .installingCLI(let progress):
             return .installing(progress: progress)
         case .awaitingUserConfirm(let message):
             return .awaitingUserConfirm(message: message)
         case .awaitingOAuth(let code):
-            // Peek at the provider before short-circuiting — oauth_creds.json
-            // may have just appeared if the user completed the browser flow.
-            // The `gemini` subprocess may not exit promptly after the user
-            // approves, so we can't rely on its exit to drive the state.
+            // Peek at the provider — oauth_creds.json may have just appeared.
             let state = await provider.checkConnection()
             if case .connected(let plan) = state {
                 activePhase = .none
@@ -93,11 +97,7 @@ actor GeminiConnector: ProviderConnector {
         switch state {
         case .connected(let plan):
             return .connected(plan: plan)
-        case .notInstalled:
-            return .needsAction
-        case .installedNoAuth:
-            return .needsAction
-        case .authExpired:
+        case .notInstalled, .installedNoAuth, .authExpired:
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
@@ -107,18 +107,18 @@ actor GeminiConnector: ProviderConnector {
     func performPrimaryAction() async {
         switch activePhase {
         case .awaitingUserConfirm:
-            // User just clicked "Continue" — answer gemini's prompt and let
-            // the CLI proceed with opening the browser. Transition state
-            // before writing so polling immediately reflects the change.
+            // User tapped "Open browser to sign in" — answer gemini's [Y/n] prompt.
             activePhase = .awaitingOAuth(code: nil)
             pendingStdinWrite?("y\n")
             return
         case .awaitingOAuth:
-            // Reopen browser — re-launch the CLI which will re-print the prompt.
+            // User tapped "Reopen browser" — re-launch the CLI.
             await launchLogin()
             return
-        default:
+        case .none:
             break
+        default:
+            return
         }
 
         let state = await provider.checkConnection()
@@ -126,7 +126,7 @@ actor GeminiConnector: ProviderConnector {
         case .connected:
             return
         case .notInstalled:
-            await installAndLogin()
+            await startPrerequisiteChain()
         case .installedNoAuth, .authExpired:
             await launchLogin()
         case .unavailable:
@@ -140,23 +140,113 @@ actor GeminiConnector: ProviderConnector {
         pendingStdinWrite = nil
     }
 
-    // MARK: - Install pipeline
+    func confirmInstall() async {
+        guard case .confirmingInstall(let kind) = activePhase else { return }
+        switch kind {
+        case .homebrew:
+            await installHomebrew()
+        case .node:
+            await installNode()
+        case .geminiCLI:
+            await installCLI()
+        }
+    }
 
-    private func installAndLogin() async {
-        guard EmbeddedNode.isAvailable() else {
-            activePhase = .none
-            Self.log.error("Embedded Node not available — cannot install Gemini CLI")
+    func skipInstall() async {
+        activePhase = .none
+        await startPrerequisiteChain()
+    }
+
+    // MARK: - Prerequisite chain
+
+    private func startPrerequisiteChain() async {
+        if SystemPrerequisiteDetector.homebrewPath() == nil {
+            activePhase = .confirmingInstall(.homebrew)
             return
         }
+        if SystemPrerequisiteDetector.nodePath() == nil {
+            activePhase = .confirmingInstall(.node)
+            return
+        }
+        if geminiBinaryURL() == nil {
+            activePhase = .confirmingInstall(.geminiCLI)
+            return
+        }
+        await launchLogin()
+    }
 
-        activePhase = .installing(progress: nil)
+    // MARK: - Install steps
 
+    private func installHomebrew() async {
+        activePhase = .installingDependency(name: "Homebrew", progress: nil)
         do {
-            let events = try await runner.install(npmPackage: Self.npmPackage)
+            let events = try await runner.installHomebrew()
             for await event in events {
                 switch event {
                 case .progress(let p):
-                    activePhase = .installing(progress: p)
+                    activePhase = .installingDependency(name: "Homebrew", progress: p)
+                case .log(let line):
+                    Self.log.debug("[brew] \(line)")
+                case .completed:
+                    Self.log.info("Homebrew installed successfully")
+                    activePhase = .none
+                    await startPrerequisiteChain()
+                    return
+                case .failed(let reason):
+                    Self.log.error("Homebrew install failed: \(reason)")
+                    activePhase = .none
+                }
+            }
+        } catch {
+            Self.log.error("Homebrew install error: \(error.localizedDescription)")
+            activePhase = .none
+        }
+    }
+
+    private func installNode() async {
+        guard let brewPath = SystemPrerequisiteDetector.homebrewPath() else {
+            Self.log.error("brew not found — cannot install Node.js")
+            activePhase = .none
+            return
+        }
+        activePhase = .installingDependency(name: "Node.js", progress: nil)
+        do {
+            let events = try await runner.installViaHomebrew(brewPath: brewPath, formula: "node", isCask: false)
+            for await event in events {
+                switch event {
+                case .progress(let p):
+                    activePhase = .installingDependency(name: "Node.js", progress: p)
+                case .log(let line):
+                    Self.log.debug("[node install] \(line)")
+                case .completed:
+                    Self.log.info("Node.js installed successfully")
+                    activePhase = .none
+                    await startPrerequisiteChain()
+                    return
+                case .failed(let reason):
+                    Self.log.error("Node.js install failed: \(reason)")
+                    activePhase = .none
+                }
+            }
+        } catch {
+            Self.log.error("Node.js install error: \(error.localizedDescription)")
+            activePhase = .none
+        }
+    }
+
+    private func installCLI() async {
+        guard let npmPath = SystemPrerequisiteDetector.npmPath() else {
+            Self.log.error("npm not found — cannot install Gemini CLI")
+            activePhase = .none
+            return
+        }
+        activePhase = .installingCLI(progress: nil)
+        do {
+            let events = try await runner.installNpmPackage(npmPath: npmPath, package: Self.npmPackage)
+            for await event in events {
+                switch event {
+                case .progress(let p):
+                    activePhase = .installingCLI(progress: p)
                 case .log(let line):
                     Self.log.debug("[npm] \(line)")
                 case .completed:
@@ -166,35 +256,28 @@ actor GeminiConnector: ProviderConnector {
                 case .failed(let reason):
                     Self.log.error("Gemini CLI install failed: \(reason)")
                     activePhase = .none
-                    return
                 }
             }
         } catch {
-            Self.log.error("Gemini install error: \(error.localizedDescription)")
+            Self.log.error("Gemini CLI install error: \(error.localizedDescription)")
             activePhase = .none
         }
     }
 
     // MARK: - Login pipeline
 
-    /// Resolves the gemini binary — prefers system-installed, falls back to embedded.
+    /// Resolves the gemini binary — checks system paths then the Tokenomics per-user npm prefix.
     private func geminiBinaryURL() -> URL? {
         let systemPaths = [
             "/opt/homebrew/bin/gemini",
             "/usr/local/bin/gemini",
-            "\(NSHomeDirectory())/.local/bin/gemini"
+            "\(NSHomeDirectory())/.local/bin/gemini",
         ]
         let fm = FileManager.default
-        for path in systemPaths {
-            if fm.isExecutableFile(atPath: path) {
-                return URL(fileURLWithPath: path)
-            }
+        for path in systemPaths where fm.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
         }
-        let embeddedPath = EmbeddedCLIRunner.embeddedBinDir.appendingPathComponent("gemini")
-        if fm.isExecutableFile(atPath: embeddedPath.path) {
-            return embeddedPath
-        }
-        return nil
+        return SystemPrerequisiteDetector.tokenomicsNpmBinPath("gemini")
     }
 
     private func launchLogin() async {
@@ -204,19 +287,15 @@ actor GeminiConnector: ProviderConnector {
             return
         }
 
-        // ~/.gemini/settings.json must declare an auth method or the CLI exits
-        // immediately with "Please set an Auth method…". We add the minimum
-        // required key, preserving any existing user settings.
+        // ~/.gemini/settings.json must declare an auth method or the CLI exits immediately.
         ensureGeminiAuthSettings()
 
-        // Start in awaitingOAuth — once we see gemini's confirm prompt in
-        // stdout we'll downgrade to awaitingUserConfirm so the user explicitly
-        // approves opening their browser via Tokenomics' UI rather than us
-        // auto-answering gemini's terminal prompt.
+        // Start in awaitingOAuth — we'll park in awaitingUserConfirm when we see
+        // gemini's [Y/n] prompt so the user explicitly approves opening their browser.
         activePhase = .awaitingOAuth(code: nil)
 
         do {
-            let handle = try await runner.runCLI(binary: binary, args: [])
+            let handle = try await runner.runCommand(executable: binary, args: [])
             pendingStdinWrite = handle.writeStdin
 
             for await event in handle.events {
@@ -224,23 +303,18 @@ actor GeminiConnector: ProviderConnector {
                 case .stdout(let line):
                     Self.log.debug("[gemini stdout] \(line)")
                     if line.contains(Self.geminiConfirmPromptMarker) {
-                        // Gemini is blocked on the [Y/n] prompt. Park in
-                        // awaitingUserConfirm and let the user click through
-                        // Tokenomics' confirmation UI.
                         if case .awaitingUserConfirm = activePhase { break }
                         activePhase = .awaitingUserConfirm(message: Self.confirmDisplayMessage)
                     }
                 case .stderr(let line):
                     Self.log.debug("[gemini stderr] \(line)")
                 case .deviceCode:
-                    // Not expected for gemini — it opens the browser itself
-                    // once the confirm prompt is answered.
+                    // Not expected for gemini — it opens the browser itself.
                     break
                 case .exited(let code):
                     Self.log.info("gemini exited with code \(code)")
                     pendingStdinWrite = nil
-                    // Don't clear phase — let the polling loop detect
-                    // oauth_creds.json for the success transition.
+                    // Don't clear phase — let the polling loop detect oauth_creds.json.
                 }
             }
         } catch {
@@ -291,6 +365,26 @@ actor GeminiConnector: ProviderConnector {
     }
 
     // MARK: - Helpers
+
+    private func confirmStep(for kind: PrerequisiteKind) -> ConnectorStep {
+        switch kind {
+        case .homebrew:
+            return .confirmingInstall(
+                title: "Tokenomics will install Homebrew",
+                body: "Homebrew is a package manager for macOS. Tokenomics uses it to install Node.js — this only happens once."
+            )
+        case .node:
+            return .confirmingInstall(
+                title: "Tokenomics will install Node.js",
+                body: "Node.js is needed to run the Gemini CLI. Takes about 30 seconds."
+            )
+        case .geminiCLI:
+            return .confirmingInstall(
+                title: "Tokenomics will install the Gemini CLI",
+                body: "The Gemini CLI is Google's command-line tool. Tokenomics installs it to a private folder on your Mac."
+            )
+        }
+    }
 
     @MainActor
     private func openOnMain(_ url: URL) {

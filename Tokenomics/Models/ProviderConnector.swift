@@ -56,6 +56,15 @@ enum ConnectorStep: Sendable, Equatable {
     /// Successfully connected.
     case connected(plan: String)
 
+    /// Asks the user to confirm an install action before it begins. Rendered with
+    /// `ConfirmInstallStep` (Continue / "I already have this").
+    case confirmingInstall(title: String, body: String)
+
+    /// Tokenomics is installing a prerequisite (Homebrew, Node.js, etc.) — distinct
+    /// from `.installing(progress:)` which is reserved for the primary CLI install
+    /// (codex, gemini). Lets the view label "Installing Node.js…" vs "Installing Codex CLI…".
+    case installingDependency(name: String, progress: Double?)
+
     /// Something went wrong; show recovery affordance.
     case failed(ConnectorError)
 }
@@ -133,4 +142,22 @@ protocol ProviderConnector: Actor {
     /// User cancelled or backed out. Connectors should clean up any in-flight work
     /// (kill subprocess, dismiss browser handoff state, etc.).
     func cancel() async
+
+    /// User tapped "Continue" on the `.confirmingInstall` step. The connector
+    /// should proceed with the install it was waiting to start.
+    func confirmInstall() async
+
+    /// User tapped "I already have this" on the `.confirmingInstall` step. The
+    /// connector should skip the pending install and re-run prerequisite detection.
+    func skipInstall() async
+}
+
+// MARK: - Default no-op implementations
+
+extension ProviderConnector {
+    /// Default no-op — connectors that don't use `.confirmingInstall` don't need this.
+    func confirmInstall() async {}
+
+    /// Default no-op — connectors that don't use `.confirmingInstall` don't need this.
+    func skipInstall() async {}
 }

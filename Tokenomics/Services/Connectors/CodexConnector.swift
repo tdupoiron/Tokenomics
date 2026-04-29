@@ -4,23 +4,17 @@ import os
 
 /// Guided-mode connector for OpenAI's Codex CLI.
 ///
-/// Flow:
-///   1. `currentStep()` delegates to `CodexProvider.checkConnection()` for the
-///      initial detection. If the CLI and auth file both exist → `.connected`.
-///   2. If the CLI is missing, `performPrimaryAction()` installs `@openai/codex`
-///      via the bundled npm (EmbeddedCLIRunner) and transitions to
-///      `.installing(progress:)`.
-///   3. Once installed, we launch `codex login` as a hidden subprocess. Its
-///      stdout is scanned for a device-code URL; when found we emit
-///      `.awaitingOAuth(code:)` and open the URL automatically in the browser.
-///   4. `ConnectorViewModel`'s polling loop (1.5s cadence) re-calls
-///      `currentStep()`. When `~/.codex/auth.json` appears, `CodexProvider`
-///      returns `.connected` and the connector flow is done.
+/// Flow (system-Node path):
+///   1. `.detecting` — `SystemPrerequisiteDetector` checks Homebrew → Node → Codex CLI in parallel.
+///   2. For each missing prerequisite, the connector waits in `.confirmingInstall` until the
+///      user taps "Continue". Then it installs via `GuidedInstallRunner` and re-detects.
+///   3. Once all prerequisites are present, it launches `codex login` as a hidden subprocess
+///      and transitions to `.awaitingOAuth`.
+///   4. The polling loop re-calls `currentStep()` every 1.5s. When `~/.codex/auth.json`
+///      appears, `CodexProvider` returns `.connected` and the flow is done.
 ///
-/// Policy note: we call neither `api.openai.com` nor any OpenAI backend
-/// directly. Tokenomics runs `codex login` (the official CLI auth flow) as a
-/// subprocess and reads the local auth.json it produces. This is Path C from
-/// the spike findings — safe and permitted.
+/// Policy note: Tokenomics runs `codex login` (the official CLI auth flow) as a subprocess
+/// and reads the local auth.json it produces. No OpenAI backend calls are made directly.
 actor CodexConnector: ProviderConnector {
     nonisolated let id: ProviderId = .codex
     nonisolated let pipelineKind: ConnectorPipelineKind = .multiStep
@@ -29,16 +23,25 @@ actor CodexConnector: ProviderConnector {
     private static let npmPackage = "@openai/codex"
 
     private let provider: CodexProvider
-    private let runner: EmbeddedCLIRunner
+    private let runner: GuidedInstallRunner
 
-    // MARK: - In-flight state
+    // MARK: - Internal state machine
 
-    /// Tracks the active install/login phase so `currentStep()` can return the
-    /// right state between provider-polling ticks.
+    /// Which prerequisite (or login phase) the connector is currently handling.
     private enum ActivePhase {
         case none
-        case installing(progress: Double?)
+        /// Waiting for user to confirm before installing a prerequisite or the CLI itself.
+        case confirmingInstall(PrerequisiteKind)
+        /// Installing a prerequisite (Homebrew, Node.js).
+        case installingDependency(name: String, progress: Double?)
+        /// Installing the primary Codex CLI.
+        case installingCLI(progress: Double?)
+        /// `codex login` is running; waiting for the OAuth browser flow to complete.
         case awaitingOAuth(code: String?)
+    }
+
+    private enum PrerequisiteKind {
+        case homebrew, node, codexCLI
     }
 
     private var activePhase: ActivePhase = .none
@@ -47,22 +50,21 @@ actor CodexConnector: ProviderConnector {
 
     init(provider: CodexProvider = CodexProvider()) {
         self.provider = provider
-        self.runner = EmbeddedCLIRunner()
+        self.runner = GuidedInstallRunner()
     }
 
     // MARK: - ProviderConnector
 
     func currentStep() async -> ConnectorStep {
-        // Prefer in-flight phase state over provider-polling — the provider's
-        // checkConnection() won't know we've started install/login yet.
         switch activePhase {
-        case .installing(let progress):
+        case .confirmingInstall(let kind):
+            return confirmStep(for: kind)
+        case .installingDependency(let name, let progress):
+            return .installingDependency(name: name, progress: progress)
+        case .installingCLI(let progress):
             return .installing(progress: progress)
         case .awaitingOAuth(let code):
-            // Peek at the provider before short-circuiting — auth.json may have
-            // just appeared if the user completed the browser flow. The
-            // `codex login` subprocess doesn't always exit promptly after the
-            // user approves, so we can't rely on its exit to drive the state.
+            // Peek at the provider — auth.json may have just appeared.
             let state = await provider.checkConnection()
             if case .connected(let plan) = state {
                 activePhase = .none
@@ -73,55 +75,40 @@ actor CodexConnector: ProviderConnector {
             break
         }
 
-        // Delegate to the provider for terminal states.
+        // No active phase — delegate to provider for terminal states.
         let state = await provider.checkConnection()
         switch state {
         case .connected(let plan):
             return .connected(plan: plan)
-        case .notInstalled:
-            // Check if the CLI is available via our embedded install path —
-            // the provider's path check includes EmbeddedCLIRunner.embeddedBinDir.
-            return .needsAction
-        case .installedNoAuth:
-            // CLI exists but no auth file — could be a partial state after install.
-            // The user needs to run the login step; we'll handle that in performPrimaryAction.
-            return .needsAction
-        case .authExpired:
+        case .notInstalled, .installedNoAuth, .authExpired:
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
         }
     }
 
-    /// Drives the install → login pipeline.
-    ///
-    /// Called by `ConnectorViewModel.tappedPrimary()`. May be called multiple
-    /// times (e.g., the user taps "Reopen browser" while we're in awaitingOAuth).
     func performPrimaryAction() async {
         switch activePhase {
         case .awaitingOAuth:
-            // User tapped "Reopen browser" — just re-open the browser if we have
-            // a saved URL, or re-launch `codex login`.
+            // User tapped "Reopen browser" — re-launch login.
             await launchLogin()
             return
-        default:
+        case .none:
             break
+        default:
+            // Mid-install — nothing to do on primary tap.
+            return
         }
 
         let state = await provider.checkConnection()
-
         switch state {
         case .connected:
-            // Already connected — nothing to do.
             return
         case .notInstalled:
-            // Install first, then login.
-            await installAndLogin()
+            await startPrerequisiteChain()
         case .installedNoAuth, .authExpired:
-            // CLI is there but auth is missing or expired.
             await launchLogin()
         case .unavailable:
-            // Surface the error via the state machine.
             return
         }
     }
@@ -131,67 +118,149 @@ actor CodexConnector: ProviderConnector {
         activePhase = .none
     }
 
-    // MARK: - Install pipeline
+    func confirmInstall() async {
+        guard case .confirmingInstall(let kind) = activePhase else { return }
+        switch kind {
+        case .homebrew:
+            await installHomebrew()
+        case .node:
+            await installNode()
+        case .codexCLI:
+            await installCLI()
+        }
+    }
 
-    private func installAndLogin() async {
-        guard EmbeddedNode.isAvailable() else {
-            activePhase = .none
-            Self.log.error("Embedded Node not available — cannot install Codex CLI")
-            // currentStep() will return .needsAction; the view will show the CTA again.
-            // A more elaborate error path could be added here if needed.
+    func skipInstall() async {
+        // User claims the prerequisite is already installed — re-detect from scratch.
+        activePhase = .none
+        await startPrerequisiteChain()
+    }
+
+    // MARK: - Prerequisite chain
+
+    /// Checks which prerequisites are missing and starts the confirm → install flow
+    /// for the first missing one. Each install step transitions cleanly to the next.
+    private func startPrerequisiteChain() async {
+        if SystemPrerequisiteDetector.homebrewPath() == nil {
+            activePhase = .confirmingInstall(.homebrew)
             return
         }
+        if SystemPrerequisiteDetector.nodePath() == nil {
+            activePhase = .confirmingInstall(.node)
+            return
+        }
+        if codexBinaryURL() == nil {
+            activePhase = .confirmingInstall(.codexCLI)
+            return
+        }
+        // Everything present — go straight to login.
+        await launchLogin()
+    }
 
-        activePhase = .installing(progress: nil)
+    // MARK: - Install steps
 
+    private func installHomebrew() async {
+        activePhase = .installingDependency(name: "Homebrew", progress: nil)
         do {
-            let events = try await runner.install(npmPackage: Self.npmPackage)
+            let events = try await runner.installHomebrew()
             for await event in events {
                 switch event {
                 case .progress(let p):
-                    activePhase = .installing(progress: p)
+                    activePhase = .installingDependency(name: "Homebrew", progress: p)
+                case .log(let line):
+                    Self.log.debug("[brew] \(line)")
+                case .completed:
+                    Self.log.info("Homebrew installed successfully")
+                    // Continue chain: check Node next.
+                    activePhase = .none
+                    await startPrerequisiteChain()
+                    return
+                case .failed(let reason):
+                    Self.log.error("Homebrew install failed: \(reason)")
+                    activePhase = .none
+                }
+            }
+        } catch {
+            Self.log.error("Homebrew install error: \(error.localizedDescription)")
+            activePhase = .none
+        }
+    }
+
+    private func installNode() async {
+        guard let brewPath = SystemPrerequisiteDetector.homebrewPath() else {
+            Self.log.error("brew not found — cannot install Node.js")
+            activePhase = .none
+            return
+        }
+        activePhase = .installingDependency(name: "Node.js", progress: nil)
+        do {
+            let events = try await runner.installViaHomebrew(brewPath: brewPath, formula: "node", isCask: false)
+            for await event in events {
+                switch event {
+                case .progress(let p):
+                    activePhase = .installingDependency(name: "Node.js", progress: p)
+                case .log(let line):
+                    Self.log.debug("[node install] \(line)")
+                case .completed:
+                    Self.log.info("Node.js installed successfully")
+                    activePhase = .none
+                    await startPrerequisiteChain()
+                    return
+                case .failed(let reason):
+                    Self.log.error("Node.js install failed: \(reason)")
+                    activePhase = .none
+                }
+            }
+        } catch {
+            Self.log.error("Node.js install error: \(error.localizedDescription)")
+            activePhase = .none
+        }
+    }
+
+    private func installCLI() async {
+        guard let npmPath = SystemPrerequisiteDetector.npmPath() else {
+            Self.log.error("npm not found — cannot install Codex CLI")
+            activePhase = .none
+            return
+        }
+        activePhase = .installingCLI(progress: nil)
+        do {
+            let events = try await runner.installNpmPackage(npmPath: npmPath, package: Self.npmPackage)
+            for await event in events {
+                switch event {
+                case .progress(let p):
+                    activePhase = .installingCLI(progress: p)
                 case .log(let line):
                     Self.log.debug("[npm] \(line)")
                 case .completed:
                     Self.log.info("Codex CLI installed successfully")
-                    // Move on to login immediately.
                     await launchLogin()
                     return
                 case .failed(let reason):
                     Self.log.error("Codex CLI install failed: \(reason)")
                     activePhase = .none
-                    // ConnectorViewModel will re-check currentStep() and get
-                    // .needsAction or a .failed state from the provider.
-                    return
                 }
             }
         } catch {
-            Self.log.error("Codex install error: \(error.localizedDescription)")
+            Self.log.error("Codex CLI install error: \(error.localizedDescription)")
             activePhase = .none
         }
     }
 
     // MARK: - Login pipeline
 
-    /// Resolves the codex binary path — checks system PATH locations first so
-    /// we prefer any existing install, falling back to our embedded prefix.
+    /// Resolves the codex binary — checks system paths then the Tokenomics per-user npm prefix.
     private func codexBinaryURL() -> URL? {
         let systemPaths = [
             "/usr/local/bin/codex",
             "\(NSHomeDirectory())/.local/bin/codex",
-            "/opt/homebrew/bin/codex"
+            "/opt/homebrew/bin/codex",
         ]
         let fm = FileManager.default
-        for path in systemPaths {
-            if fm.isExecutableFile(atPath: path) {
-                return URL(fileURLWithPath: path)
-            }
+        for path in systemPaths where fm.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
         }
-        let embeddedPath = EmbeddedCLIRunner.embeddedBinDir.appendingPathComponent("codex")
-        if fm.isExecutableFile(atPath: embeddedPath.path) {
-            return embeddedPath
-        }
-        return nil
+        return SystemPrerequisiteDetector.tokenomicsNpmBinPath("codex")
     }
 
     private func launchLogin() async {
@@ -204,7 +273,7 @@ actor CodexConnector: ProviderConnector {
         activePhase = .awaitingOAuth(code: nil)
 
         do {
-            let handle = try await runner.runCLI(binary: binary, args: ["login"])
+            let handle = try await runner.runCommand(executable: binary, args: ["login"])
             for await event in handle.events {
                 switch event {
                 case .stdout(let line):
@@ -212,15 +281,12 @@ actor CodexConnector: ProviderConnector {
                 case .stderr(let line):
                     Self.log.debug("[codex stderr] \(line)")
                 case .deviceCode(let url, let code):
-                    // Surface the URL in the connector UI and open it automatically.
                     activePhase = .awaitingOAuth(code: code)
                     await openOnMain(url)
                     Self.log.info("Codex device-code URL detected: \(url)")
                 case .exited(let code):
                     Self.log.info("codex login exited with code \(code)")
-                    // Don't clear activePhase here — the polling loop will detect
-                    // ~/.codex/auth.json and transition to .connected naturally.
-                    // If the file never appears, the stuckThreshold kicks in.
+                    // Don't clear phase — let the polling loop detect auth.json.
                 }
             }
         } catch {
@@ -230,6 +296,26 @@ actor CodexConnector: ProviderConnector {
     }
 
     // MARK: - Helpers
+
+    private func confirmStep(for kind: PrerequisiteKind) -> ConnectorStep {
+        switch kind {
+        case .homebrew:
+            return .confirmingInstall(
+                title: "Tokenomics will install Homebrew",
+                body: "Homebrew is a package manager for macOS. Tokenomics uses it to install Node.js — this only happens once."
+            )
+        case .node:
+            return .confirmingInstall(
+                title: "Tokenomics will install Node.js",
+                body: "Node.js is needed to run the Codex CLI. Takes about 30 seconds."
+            )
+        case .codexCLI:
+            return .confirmingInstall(
+                title: "Tokenomics will install the Codex CLI",
+                body: "The Codex CLI is OpenAI's command-line tool. Tokenomics installs it to a private folder on your Mac."
+            )
+        }
+    }
 
     @MainActor
     private func openOnMain(_ url: URL) {

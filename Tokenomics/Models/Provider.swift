@@ -221,9 +221,9 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     /// (for npm providers) when neither tool is present — so the user isn't dead-ended by a
     /// cryptic "brew not found" error.
     ///
-    /// - Note: Deprecated in v2.9. EmbeddedCLIRunner (via ConnectorView) is now the canonical
+    /// - Note: Deprecated in v2.9. GuidedInstallRunner (via ConnectorView) is now the canonical
     ///   install path — no Terminal required. This method is kept for one release as a fallback.
-    @available(*, deprecated, message: "Replaced by EmbeddedCLIRunner + ConnectorView. Use ConnectorContainer or AIConnectionsView.openConnector(for:).")
+    @available(*, deprecated, message: "Replaced by GuidedInstallRunner + ConnectorView. Use ConnectorContainer or AIConnectionsView.openConnector(for:).")
     func openInstallInTerminal() {
         guard !installCommand.isEmpty else { return }
 
