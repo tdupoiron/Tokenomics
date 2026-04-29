@@ -52,7 +52,10 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             return [Item(label: l1, state: c), Item(label: l2, state: c),
                     Item(label: l3, state: c), Item(label: l4, state: a)]
         case .waitingForExternalApp:
-            return []
+            // Pattern D (Cursor): stepper is visible, step 2 ("Installing Cursor") stays active
+            // while we poll for the bundle + sign-in.
+            return [Item(label: l1, state: c), Item(label: l2, state: a),
+                    Item(label: l3, state: u), Item(label: l4, state: u)]
         case .failed(let error):
             // Keep the stepper visible on failure so users can see which step failed.
             // Infer the failed step from the error type — avoids storing history.
