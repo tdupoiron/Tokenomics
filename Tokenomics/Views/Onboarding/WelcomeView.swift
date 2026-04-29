@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// First-launch screen — replaces the old OnboardingView's full-list layout
-/// with a single-CTA welcome. Hero ring + value prop + Get Started button.
+/// with a single-CTA welcome. Hero ring + serif headline + value prop +
+/// Get Started button + privacy disclosure.
 ///
 /// Routes to ProviderChooserView when the user taps Get Started.
 struct WelcomeView: View {
@@ -14,14 +15,23 @@ struct WelcomeView: View {
                 WelcomeRingView()
                     .padding(.top, 24)
 
-                VStack(spacing: 4) {
-                    Text("Track your AI usage")
-                        .scaledFont(.subheadline)
+                // Mockup: 28px serif headline + subtitle lede
+                VStack(spacing: 6) {
+                    Text("Track your AI usage.")
+                        .font(.title2)
+                        .fontDesign(.serif)
                         .fontWeight(.semibold)
+                        .multilineTextAlignment(.center)
 
-                    Text("at a glance from the menu bar.")
+                    Text("At a glance, from the menu bar.")
+                        .scaledFont(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Text("Works with Claude, Codex, Gemini, Copilot, Cursor, and more.")
                         .scaledFont(.caption)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
 
                 Button("Get Started", action: onGetStarted)
@@ -29,7 +39,7 @@ struct WelcomeView: View {
                     .controlSize(.regular)
                     .padding(.top, 8)
 
-                footer
+                privacyDisclosure
                     .padding(.top, 6)
             }
             .padding(.horizontal, 16)
@@ -37,20 +47,31 @@ struct WelcomeView: View {
         }
     }
 
-    /// Two-paragraph footer — provider list + Settings hint. The blank line
-    /// between the two paragraphs is meaningful; don't merge them.
-    private var footer: some View {
-        VStack(spacing: 10) {
-            Text("Works with **Anthropic, OpenAI, Google AI, GitHub Copilot, Cursor, Stability AI, Runway, ElevenLabs, Midjourney, Suno & Udio**.")
-                .scaledFont(.caption2)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
+    // MARK: - Privacy disclosure
 
-            Text("Add or remove providers anytime in **Settings → Connections**.")
-                .scaledFont(.caption2)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
+    /// Replaces the old provider list footer. Gives first-time users the
+    /// privacy framing the mockup emphasizes — local reads, no egress.
+    /// Uses AttributedString so the "Learn more →" link sits inline with
+    /// the static text without a separate layout container.
+    private var privacyDisclosure: some View {
+        Text(disclosureString)
+            .scaledFont(.caption2)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .environment(\.openURL, OpenURLAction { url in
+                NSWorkspace.shared.open(url)
+                return .handled
+            })
+    }
+
+    private var disclosureString: AttributedString {
+        var base = AttributedString("Tokenomics reads usage data locally. Your tokens never leave your Mac.  ")
+        base.foregroundColor = .secondary
+
+        var link = AttributedString("Learn more →")
+        link.foregroundColor = .accentColor
+        link.link = URL(string: "https://trytokenomics.com")
+
+        return base + link
     }
 }
