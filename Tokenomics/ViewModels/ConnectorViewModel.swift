@@ -35,16 +35,16 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         switch step {
         case .detecting, .needsAction:
             return [Item(label: "Checking", state: a), Item(label: "Installing", state: u),
-                    Item(label: "Signing in", state: u), Item(label: "Done", state: u)]
+                    Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
         case .confirmingInstall, .installingDependency, .installing:
             return [Item(label: "Checking", state: c), Item(label: "Installing", state: a),
-                    Item(label: "Signing in", state: u), Item(label: "Done", state: u)]
+                    Item(label: "Signing in", state: u), Item(label: "Connection check", state: u)]
         case .previewExternalSteps, .awaitingOAuth, .awaitingUserConfirm, .awaitingExternalAuth:
             return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
-                    Item(label: "Signing in", state: a), Item(label: "Done", state: u)]
+                    Item(label: "Signing in", state: a), Item(label: "Connection check", state: u)]
         case .connected:
             return [Item(label: "Checking", state: c), Item(label: "Installing", state: c),
-                    Item(label: "Signing in", state: c), Item(label: "Done", state: a)]
+                    Item(label: "Signing in", state: c), Item(label: "Connection check", state: a)]
         case .failed, .waitingForExternalApp:
             return []
         }

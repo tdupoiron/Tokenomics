@@ -40,15 +40,6 @@ struct ConfirmInstallStep: View {
             Spacer()
 
             VStack(alignment: .leading, spacing: 12) {
-                // Icon
-                Image(systemName: "arrow.down.circle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 44, height: 44)
-                    .foregroundStyle(.tint)
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 4)
-
                 Text(title)
                     .font(.headline)
                     .fontWeight(.semibold)

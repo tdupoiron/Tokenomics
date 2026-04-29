@@ -10,6 +10,8 @@ struct ProviderChooserView: View {
     @ObservedObject var viewModel: UsageViewModel
     var onPick: (ProviderId) -> Void
     var onAllSet: () -> Void
+    /// Called when the user taps ← Back; nil if there is no back destination.
+    var onBack: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -57,27 +59,49 @@ struct ProviderChooserView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
-            // Reserve space for symmetry; no back button on this screen
-            // (it's the second-step of onboarding; "I'm all set" is the escape).
-            HStack(spacing: 4) {
-                Image(systemName: "chevron.left")
-                Text(" ")
+        HStack(alignment: .center) {
+            // Back button — visible only when a back destination is provided.
+            if let onBack {
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                    .scaledFont(.caption)
+                    .padding(.vertical, 4)
+                    .padding(.trailing, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            } else {
+                // Invisible balance spacer so the title stays centered.
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                    Text("Back")
+                }
+                .scaledFont(.caption)
+                .hidden()
             }
-            .scaledFont(.caption)
-            .hidden()
 
             Spacer()
 
-            Text("Add a provider")
-                .scaledFont(.headline)
-                .fontWeight(.medium)
+            VStack(spacing: 2) {
+                Text("Add a provider")
+                    .scaledFont(.headline)
+                    .fontWeight(.medium)
+
+                Text("We'll walk you through any setup that's needed.")
+                    .scaledFont(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
 
+            // Invisible balance — mirrors the back button width.
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
-                Text(" ")
+                Text("Back")
             }
             .scaledFont(.caption)
             .hidden()

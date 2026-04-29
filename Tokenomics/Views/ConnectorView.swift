@@ -296,6 +296,12 @@ struct ConnectorView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
 
+            Text("Tokenomics is now reading your \(viewModel.providerName) usage.")
+                .scaledFont(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
+
             Text("Want to add another, or jump in?")
                 .scaledFont(.caption)
                 .foregroundStyle(.secondary)

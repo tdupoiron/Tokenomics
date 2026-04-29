@@ -41,7 +41,8 @@ struct ConnectorContainer: View {
                 ProviderChooserView(
                     viewModel: viewModel,
                     onPick: open(provider:),
-                    onAllSet: completeOnboarding
+                    onAllSet: completeOnboarding,
+                    onBack: { screen = .welcome }
                 )
             case .connector:
                 if let active = activeConnector {
