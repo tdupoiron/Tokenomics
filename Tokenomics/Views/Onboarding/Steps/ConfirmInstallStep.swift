@@ -6,11 +6,13 @@ import SwiftUI
 /// Includes an optional command preview surface (monospaced command card) and
 /// an optional footnote explaining source/runtime/disk impact.
 ///
-/// Two actions: Continue (proceeds with the automated install) and
-/// "Already have X? Skip this step" (small text-link, skips the install step).
+/// Layout matches mockup section 4 (ConfirmInstall frames, lines ~1440–1644):
+///   - .surface card wrapping headline + lede + .cmd-preview + footnote
+///   - helper "Already have X?" text-link skip
+///   - winfoot: Back ghost | Install primary
 ///
-/// Chrome mirrors ConnectorView: 16pt horizontal padding, borderedProminent
-/// primary button.
+/// Two actions: Continue (proceeds with the automated install) and
+/// "Already have X? Skip this step" (text-link, skips the install step).
 struct ConfirmInstallStep: View {
     /// Short headline. E.g. "Install Homebrew"
     var title: String
@@ -23,74 +25,91 @@ struct ConfirmInstallStep: View {
     var commandPreview: String? = nil
 
     /// Muted footnote below the card — source, runtime, disk impact.
-    /// E.g. "We'll open Terminal and install Homebrew with your permission."
     var footnote: String? = nil
 
-    /// Label for the skip text-link. E.g. "Already have Homebrew? Skip this step".
+    /// Label for the skip text-link.
     var skipLabel: String = "I already have this"
 
-    /// Label for the primary button. Defaults to "Continue" for install flows;
-    /// Pattern E (API key) uses "Open [Provider]" here.
+    /// Label for the primary button.
     var primaryLabel: String = "Continue"
 
-    /// Called when the user taps the primary button — the connector should proceed.
+    /// Called when the user taps the primary button.
     var onContinue: () -> Void
 
-    /// Called when the user taps the skip link — the connector should skip this step.
+    /// Called when the user taps the skip link.
     var onSkip: () -> Void
+
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(alignment: .leading, spacing: 12) {
+            // Surface card containing the headline + description + command
+            // mockup .surface: bg surface, 1px border, r-md, padding 16×18
+            VStack(alignment: .leading, spacing: Tokens.Spacing.s3) {
+                // Headline — h2
                 Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(Tokens.Typography.Onboarding.h2)
+                    .foregroundStyle(Tokens.Color.text(scheme))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
+                // Description lede
                 Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.Onboarding.lede)
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
-                // Command preview card — dashed border monospace surface
+                // "Tokenomics will run:" label + command preview card
                 if let cmd = commandPreview {
-                    commandCard(cmd)
+                    VStack(alignment: .leading, spacing: Tokens.Spacing.s1) {
+                        Text("Tokenomics will run:")
+                            .font(Tokens.Typography.Onboarding.small)
+                            .foregroundStyle(Tokens.Color.textMuted(scheme))
+                        commandCard(cmd)
+                    }
                 }
 
                 // Source/runtime footnote
                 if let note = footnote {
                     Text(note)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .font(Tokens.Typography.Onboarding.small)
+                        .foregroundStyle(Tokens.Color.textMuted(scheme))
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, Tokens.Spacing.s4 + 2) // 18pt — mockup padding: 16px 18px
+            .padding(.vertical, Tokens.Spacing.s4)        // 16pt
+            .background(Tokens.Color.surface(scheme))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.md)
+                    .strokeBorder(Tokens.Color.border(scheme), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md))
+            .padding(.horizontal, Tokens.Spacing.s5)
+
+            // Helper skip link
+            // mockup: center-aligned small text + text-link
+            Button(skipLabel, action: onSkip)
+                .buttonStyle(.tokenTextLink)
+                .padding(.top, Tokens.Spacing.s3)
+                .frame(maxWidth: .infinity)
 
             Spacer()
 
-            // Action stack
-            VStack(spacing: 8) {
+            // Footer: Back ghost | primary CTA
+            // (back button owned by ConnectorView; we just provide the primary here
+            //  in the same action-stack rhythm used across the flow)
+            VStack(spacing: Tokens.Spacing.s2) {
                 Button(primaryLabel, action: onContinue)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.regular)
-
-                // TODO Step 6+: power-user escape hatch — "Or run it in Terminal yourself"
-                //   would open Terminal with the command pre-filled via AppleScript.
-
-                Button(skipLabel, action: onSkip)
-                    .buttonStyle(.plain)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.tokenPrimary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
+            .padding(.horizontal, Tokens.Spacing.s5)
+            .padding(.bottom, Tokens.Spacing.s5)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -98,54 +117,70 @@ struct ConfirmInstallStep: View {
     // MARK: - Command card
 
     /// Dashed-border monospaced card with a `$` prompt prefix.
-    /// Matches the mockup's `.cmd-preview` pattern: `surface-2` background,
-    /// dashed border, monospaced font.
+    /// mockup .cmd-preview (lines 480–495):
+    ///   bg surface-2, 1px DASHED border-strong, r-sm, padding 12×14, mono 13px
+    ///   `$` prompt in text-subtle
     private func commandCard(_ command: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: Tokens.Spacing.s2 + 2) { // 10pt gap
             Text("$")
-                .font(.system(.caption, design: .monospaced))
-                .fontWeight(.semibold)
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(Tokens.Color.textSubtle(scheme))
                 .padding(.top, 1)
 
             Text(command)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.primary)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(Tokens.Color.text(scheme))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .lineLimit(nil)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Tokens.Spacing.s4 - 2) // 14pt — mockup padding: 12px 14px
+        .padding(.vertical, Tokens.Spacing.s3)        // 12pt
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Tokens.Color.surface2(scheme))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Tokens.Radius.sm)
                 .stroke(
-                    Color(nsColor: .separatorColor),
-                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                    Tokens.Color.borderStrong(scheme),
+                    style: StrokeStyle(lineWidth: 1, dash: [4, 4])
                 )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
     }
 }
 
 // MARK: - Preview
 
-#Preview("Install Homebrew — full chrome") {
+#Preview("Install Homebrew — light") {
     ConfirmInstallStep(
         title: "Install Homebrew",
         description: "Tokenomics needs Homebrew to install Claude Code. Homebrew is the standard Mac package manager — about 2 minutes to install.",
         commandPreview: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
-        footnote: "We'll open Terminal and install Homebrew with your permission. You'll be asked for your password once. This is Homebrew's official installer, straight from brew.sh.",
+        footnote: "We'll open Terminal and install Homebrew with your permission. You'll be asked for your password once.",
         skipLabel: "Already have Homebrew? Skip this step",
         onContinue: {},
         onSkip: {}
     )
-    .frame(width: 360, height: 420)
+    .frame(width: 680, height: 580)
+    .background(Tokens.DynamicColor.bg)
 }
 
-#Preview("Install Node.js") {
+#Preview("Install Homebrew — dark") {
+    ConfirmInstallStep(
+        title: "Install Homebrew",
+        description: "Tokenomics needs Homebrew to install Claude Code. Homebrew is the standard Mac package manager — about 2 minutes to install.",
+        commandPreview: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+        footnote: "We'll open Terminal and install Homebrew with your permission.",
+        skipLabel: "Already have Homebrew? Skip this step",
+        onContinue: {},
+        onSkip: {}
+    )
+    .frame(width: 680, height: 580)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Install Node.js — light") {
     ConfirmInstallStep(
         title: "Install Node.js",
         description: "Now we'll install Node.js using Homebrew. About 30 seconds, no extra permissions needed.",
@@ -155,10 +190,11 @@ struct ConfirmInstallStep: View {
         onContinue: {},
         onSkip: {}
     )
-    .frame(width: 360, height: 380)
+    .frame(width: 680, height: 580)
+    .background(Tokens.DynamicColor.bg)
 }
 
-#Preview("Install Codex CLI") {
+#Preview("Install Codex CLI — light") {
     ConfirmInstallStep(
         title: "Install Codex CLI",
         description: "Tokenomics will install OpenAI's command-line Codex tool. About 30 seconds.",
@@ -168,5 +204,6 @@ struct ConfirmInstallStep: View {
         onContinue: {},
         onSkip: {}
     )
-    .frame(width: 360, height: 360)
+    .frame(width: 680, height: 580)
+    .background(Tokens.DynamicColor.bg)
 }

@@ -5,13 +5,12 @@ import SwiftUI
 ///
 /// Window 5 of the Anthropic / Claude Code flow. The user has left to finish
 /// Anthropic's wizard in Terminal; this screen keeps them oriented and gives
-/// them a manual check-now escape hatch in case the file appeared before the
-/// next poll tick.
+/// them a manual check-now escape hatch.
 ///
-/// Includes a static terminal mini-preview showing the Claude Code chat prompt
-/// with the caption "When your Terminal looks like this, you're signed in."
+/// Layout follows mockup section 12 Window 5 — centered stack with spinner,
+/// terminal-mini illustration, polling indicator, and footer.
 struct AwaitExternalAuthView: View {
-    /// Short headline. E.g. "Confirm login".
+    /// Short headline.
     var headline: String
 
     /// Instruction paragraph shown below the headline.
@@ -20,63 +19,51 @@ struct AwaitExternalAuthView: View {
     /// Called when the user taps "I'm signed in — check now".
     var onCheckNow: () -> Void
 
-    /// Called when the user taps Back. Optional — omit to hide the back button.
+    /// Called when the user taps Back.
     var onBack: (() -> Void)?
+
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 16) {
+            VStack(spacing: Tokens.Spacing.s4) {
                 // Spinner — signals active polling
                 ProgressView()
                     .controlSize(.large)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, Tokens.Spacing.s1)
 
-                // Headline
+                // Headline — h2
                 Text(headline)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(Tokens.Typography.Onboarding.h2)
+                    .foregroundStyle(Tokens.Color.text(scheme))
                     .multilineTextAlignment(.center)
 
-                // Body
+                // Body — lede
                 Text(instructionText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.Onboarding.lede)
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
                     .multilineTextAlignment(.center)
 
                 // Terminal mini-preview + caption
-                VStack(spacing: 8) {
+                VStack(spacing: Tokens.Spacing.s2) {
                     terminalMiniPreview
                     Text("When your Terminal looks like this, you're signed in.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Tokens.Typography.Onboarding.small)
+                        .foregroundStyle(Tokens.Color.textMuted(scheme))
                         .multilineTextAlignment(.center)
                 }
 
-                // Polling caption
+                // Polling indicator
                 pollingCaption
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, Tokens.Spacing.s5)
 
             Spacer()
 
-            // Action stack
-            VStack(spacing: 10) {
-                Button("I'm signed in — check now", action: onCheckNow)
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-
-                if let onBack {
-                    Button("← Back", action: onBack)
-                        .buttonStyle(.plain)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
+            // Footer — "I'm signed in" secondary + Back ghost
+            footer
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -84,87 +71,144 @@ struct AwaitExternalAuthView: View {
     // MARK: - Terminal mini-preview
 
     /// Static styled rectangle showing Claude Code's startup chat prompt.
-    /// Not a live terminal embed — this is a visual cue so the user knows
-    /// what "done" looks like in Terminal.
+    /// mockup .terminal-mini: dark bg, r-md, shadow-sm, monospaced 12px
     private var terminalMiniPreview: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Fake terminal title bar
-            HStack(spacing: 5) {
-                Circle().fill(Color(nsColor: .systemRed)).frame(width: 8, height: 8)
-                Circle().fill(Color(nsColor: .systemYellow)).frame(width: 8, height: 8)
-                Circle().fill(Color(nsColor: .systemGreen)).frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: 0) {
+            // Fake terminal title bar — always dark (real terminals are dark by default)
+            // mockup .tbar: 22px height, #2a2a2a bg, border-bottom #0a0a0a
+            HStack(spacing: 6) {
+                Circle().fill(Color(hex: 0xFF5F57)).frame(width: 8, height: 8)
+                Circle().fill(Color(hex: 0xFEBC2E)).frame(width: 8, height: 8)
+                Circle().fill(Color(hex: 0x28C840)).frame(width: 8, height: 8)
                 Spacer()
                 Text("Terminal — claude")
                     .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(white: 0.53))
                 Spacer()
-                // Balance
-                Circle().opacity(0).frame(width: 8 * 3 + 5 * 2, height: 8)
+                // Balance spacer
+                Circle().opacity(0).frame(width: 8 * 3 + 6 * 2, height: 8)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, Tokens.Spacing.s2 + 2)
             .padding(.vertical, 5)
-            .background(Color(nsColor: .separatorColor).opacity(0.5))
+            .background(Color(hex: 0x2A2A2A))
 
             // Terminal content body
+            // mockup .tbody: padding 12×14, mono 12px, line-height 1.55
             VStack(alignment: .leading, spacing: 2) {
-                monoLine("  ██████╗ ██╗      █████╗ ██╗   ██╗██████╗ ███████╗", color: .secondary)
-                monoLine("  ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██╔════╝", color: .secondary)
-                monoLine("  ██║     ██║     ███████║██║   ██║██║  ██║█████╗  ", color: .secondary)
-                monoLine("  ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗", color: .secondary)
-                monoLine("  ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝", color: .secondary)
-                    .padding(.bottom, 4)
-                monoLine("  > How can I help you today?", color: .primary)
+                monoLine("  ██████╗ ██╗      █████╗ ██╗   ██╗██████╗ ███████╗", muted: true)
+                monoLine("  ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██╔════╝", muted: true)
+                monoLine("  ██║     ██║     ███████║██║   ██║██║  ██║█████╗  ", muted: true)
+                monoLine("  ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗", muted: true)
+                monoLine("  ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝", muted: true)
+                    .padding(.bottom, Tokens.Spacing.s1)
+                monoLine("  > How can I help you today?", muted: false)
             }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 8)
+            .padding(.horizontal, Tokens.Spacing.s2 + 2) // 10pt
+            .padding(.vertical, Tokens.Spacing.s3)        // 12pt
         }
-        .background(Color.black.opacity(0.85))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(Color(hex: 0x1C1C1C))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: Tokens.Radius.md)
+                .stroke(Color(hex: 0x0A0A0A), lineWidth: 1)
         )
     }
 
-    private func monoLine(_ text: String, color: Color) -> some View {
+    private func monoLine(_ text: String, muted: Bool) -> some View {
         Text(text)
             .font(.system(size: 7, design: .monospaced))
-            .foregroundStyle(color == .primary ? Color.green.opacity(0.9) : Color.white.opacity(0.35))
+            .foregroundStyle(
+                muted
+                    ? Color.white.opacity(0.35)
+                    : Color(hex: 0x6FD18A).opacity(0.9) // terminal green
+            )
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Polling caption
 
+    /// Surface-2 bg pill showing the watch path.
     private var pollingCaption: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Tokens.Spacing.s1 + 2) { // 6pt
             ProgressView()
                 .controlSize(.mini)
             Text("Watching ")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Tokens.Typography.Onboarding.small)
+                .foregroundStyle(Tokens.Color.textMuted(scheme))
             + Text("~/.claude")
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
+                .font(.custom("DM Sans", size: 13).monospaced())
+                .foregroundStyle(Tokens.Color.textMuted(scheme))
             + Text(" for authentication…")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Tokens.Typography.Onboarding.small)
+                .foregroundStyle(Tokens.Color.textMuted(scheme))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.4))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, Tokens.Spacing.s3)
+        .padding(.vertical, Tokens.Spacing.s2)
+        .background(Tokens.Color.surface2(scheme))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        HStack {
+            if let onBack {
+                Button(action: onBack) {
+                    Text("← Back")
+                }
+                .buttonStyle(.tokenGhost)
+            }
+
+            Spacer()
+
+            Button("I'm signed in — check now", action: onCheckNow)
+                .buttonStyle(.tokenSecondary)
+        }
+        .padding(.top, Tokens.Spacing.s5)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Tokens.Color.border(scheme))
+                .frame(height: 1)
+        }
+        .padding(.horizontal, Tokens.Spacing.s5)
+        .padding(.bottom, Tokens.Spacing.s5)
+    }
+}
+
+// MARK: - Color helper
+
+private extension Color {
+    /// Convenience init from a hex integer literal (e.g. `Color(hex: 0xFF5F57)`).
+    init(hex: UInt32) {
+        let r = Double((hex >> 16) & 0xFF) / 255
+        let g = Double((hex >>  8) & 0xFF) / 255
+        let b = Double( hex        & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
     }
 }
 
 // MARK: - Preview
 
-#Preview("Window 5 — Awaiting auth") {
+#Preview("Window 5 — Awaiting auth — light") {
     AwaitExternalAuthView(
         headline: "Confirm login",
         instructionText: "We're waiting for your successful login. You'll know you're done when you see Claude's chat prompt — close Terminal then and come back here.",
         onCheckNow: {},
         onBack: {}
     )
-    .frame(width: 320, height: 440)
+    .frame(width: 680, height: 580)
+    .background(Tokens.DynamicColor.bg)
+}
+
+#Preview("Window 5 — Awaiting auth — dark") {
+    AwaitExternalAuthView(
+        headline: "Confirm login",
+        instructionText: "We're waiting for your successful login. You'll know you're done when you see Claude's chat prompt — close Terminal then and come back here.",
+        onCheckNow: {},
+        onBack: {}
+    )
+    .frame(width: 680, height: 580)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
 }

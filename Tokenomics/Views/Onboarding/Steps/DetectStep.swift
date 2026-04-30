@@ -5,42 +5,56 @@ import SwiftUI
 /// This is a read-only display — the connector's view model drives detection
 /// and advances past this screen automatically. There are no buttons here.
 ///
-/// Step 3 wires this into the Codex/Gemini connector flows. For now it renders
-/// stand-alone so we can eyeball the chrome.
+/// Layout follows mockup section 3 "Detect" — headline + lede centered, spinner.
+/// The full checklist (Homebrew / Node / CLI status rows) is a deferred post-beta
+/// feature; a spinner is acceptable for the current release.
 struct DetectStep: View {
     /// Displayed below the spinner. E.g. "Checking for Homebrew, Node.js,
     /// and the Codex CLI…"
     var message: String
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             Spacer()
 
-            ProgressView()
-                .controlSize(.large)
-                .padding(.bottom, 4)
+            VStack(spacing: Tokens.Spacing.s3) {
+                ProgressView()
+                    .controlSize(.large)
+                    .padding(.bottom, Tokens.Spacing.s1)
 
-            VStack(spacing: 6) {
+                // Headline — mockup: h-sans h2
                 Text("Checking your Mac…")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(Tokens.Typography.Onboarding.h2)
+                    .foregroundStyle(Tokens.Color.text(scheme))
+                    .multilineTextAlignment(.center)
 
+                // Sub-message — mockup: .lede color text-muted
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.Onboarding.lede)
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
                     .multilineTextAlignment(.center)
             }
+            .padding(.horizontal, Tokens.Spacing.s5)
 
             Spacer()
         }
-        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 // MARK: - Preview
 
-#Preview("Detect Step") {
+#Preview("Detect Step — light") {
     DetectStep(message: "Checking for Homebrew, Node.js, and the Codex CLI…")
-        .frame(width: 320, height: 240)
+        .frame(width: 680, height: 580)
+        .background(Tokens.DynamicColor.bg)
+}
+
+#Preview("Detect Step — dark") {
+    DetectStep(message: "Checking for Homebrew, Node.js, and the Codex CLI…")
+        .frame(width: 680, height: 580)
+        .background(Tokens.DynamicColor.bg)
+        .preferredColorScheme(.dark)
 }
