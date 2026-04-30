@@ -23,6 +23,8 @@ struct ConnectorContainer: View {
     /// "Add another" as "close window" rather than routing back to chooser.
     @State private var isPreTargeted = false
 
+    @Environment(\.colorScheme) private var scheme
+
     enum Screen {
         case welcome
         case chooser
@@ -44,6 +46,10 @@ struct ConnectorContainer: View {
                     onAllSet: completeOnboarding,
                     onBack: { screen = .welcome }
                 )
+                // Chooser winbody inset — matches mockup .winbody padding: 32px 40px 28px
+                .padding(.top, Tokens.Spacing.s6)        // 32pt
+                .padding(.horizontal, Tokens.Spacing.s7) // 48pt — closest to mockup's 40px
+                .padding(.bottom, Tokens.Spacing.s5 + 4) // 28pt
             case .connector:
                 if let active = activeConnector {
                     ConnectorView(
@@ -56,6 +62,7 @@ struct ConnectorContainer: View {
                 }
             }
         }
+        .background(Tokens.DynamicColor.bg.ignoresSafeArea())
         // Reset to chooser on re-entry so users who completed or cancelled a
         // previous flow don't land on a stale connector screen.
         .onAppear {

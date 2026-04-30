@@ -69,6 +69,7 @@ struct OnboardingWindowRoot: View {
     var body: some View {
         ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
             .frame(width: 680, height: 580)
+            .background(Tokens.DynamicColor.bg.ignoresSafeArea())
             .onAppear {
                 NSApplication.shared.setActivationPolicy(.regular)
                 NSApp.activate(ignoringOtherApps: true)

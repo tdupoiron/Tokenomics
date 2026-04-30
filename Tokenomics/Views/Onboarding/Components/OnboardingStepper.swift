@@ -35,10 +35,13 @@ struct OnboardingStepperItem: Hashable {
 struct OnboardingStepper: View {
     let items: [OnboardingStepperItem]
 
+    @Environment(\.colorScheme) private var scheme
+
     // Fixed slot geometry — matches the mockup's CSS values.
+    // .step { flex: 0 0 110px } | .step-line { flex: 0 0 36px } | .step-mark { 22×22 }
     private let slotWidth: CGFloat = 110
     private let lineWidth: CGFloat = 36
-    private let markSize: CGFloat = 22
+    private let markSize: CGFloat  = 22
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -51,13 +54,10 @@ struct OnboardingStepper: View {
                 if index < items.count - 1 {
                     connectorLine(leftState: item.state)
                         .frame(width: lineWidth, height: markSize)
-                        .padding(.top, 0)
-                        // Optical center-alignment with the mark circles
                         .alignmentGuide(.top) { $0[.top] }
                 }
             }
         }
-        // The marks are 22pt; the labels hang below — total height ~40pt.
         .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -79,14 +79,17 @@ struct OnboardingStepper: View {
                     Circle()
                         .strokeBorder(markBorder(state), lineWidth: 1.5)
                 )
-                // Active halo ring — matches mockup's `box-shadow: 0 0 0 4px`
-                .shadow(
-                    color: state == .active ? Color.accentColor.opacity(0.22) : .clear,
-                    radius: 0, x: 0, y: 0
-                )
+                // Active halo ring — mockup: `box-shadow: 0 0 0 4px color-mix(accent 22%, transparent)`
                 .overlay(
                     Circle()
-                        .stroke(state == .active ? Color.accentColor.opacity(0.22) : .clear, lineWidth: 4)
+                        .stroke(
+                            state == .active
+                                ? Tokens.Color.accent(scheme).opacity(0.22)
+                                : (state == .error
+                                    ? Tokens.Color.danger(scheme).opacity(0.22)
+                                    : Color.clear),
+                            lineWidth: 4
+                        )
                         .frame(width: markSize + 8, height: markSize + 8)
                 )
 
@@ -94,118 +97,157 @@ struct OnboardingStepper: View {
             case .completed:
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Tokens.Color.white)
             case .error:
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Tokens.Color.white)
             case .active, .upcoming:
                 Text("\(index)")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Tokens.Typography.Onboarding.stepperNumber)
                     .monospacedDigit()
-                    .foregroundStyle(state == .upcoming ? Color.secondary : .white)
+                    .foregroundStyle(
+                        state == .upcoming
+                            ? Tokens.Color.textSubtle(scheme)
+                            : Tokens.Color.white
+                    )
             }
         }
     }
 
     private func stepLabel(_ text: String, state: OnboardingStepperItem.State) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: state == .active ? .semibold : .medium))
+            .font(state == .active || state == .error
+                  ? Tokens.Typography.Onboarding.micro.weight(.semibold)
+                  : Tokens.Typography.Onboarding.micro)
             .foregroundStyle(labelColor(state))
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Horizontal line between two step slots. Color tracks the left segment's state.
+    /// Horizontal line between two step slots.
+    /// Color tracks the left segment's state.
     private func connectorLine(leftState: OnboardingStepperItem.State) -> some View {
+        // mockup .step-line: height 2px, border-radius 2px
+        // .step-line.done: background var(--accent)
+        // else: background var(--border-strong)
         Rectangle()
             .fill(lineColor(leftState))
             .frame(height: 2)
-            // Optical vertical alignment: center the line on the mark circles,
-            // which are 22pt tall; the labels hang below.
             .padding(.top, (markSize - 2) / 2)
-            .animation(.easeInOut(duration: 0.2), value: leftState)
-    }
-
-    private func lineColor(_ state: OnboardingStepperItem.State) -> Color {
-        switch state {
-        case .completed: return .accentColor
-        case .error: return Color(nsColor: .systemRed)
-        case .active, .upcoming: return Color(nsColor: .separatorColor)
-        }
+            .animation(.easeInOut(duration: Tokens.Motion.standard), value: leftState)
     }
 
     // MARK: - Color helpers
 
+    private func lineColor(_ state: OnboardingStepperItem.State) -> Color {
+        // mockup: .step-line.done → accent; else → border-strong (mockup line 311)
+        switch state {
+        case .completed: return Tokens.Color.accent(scheme)
+        case .error:     return Tokens.Color.danger(scheme)
+        case .active, .upcoming: return Tokens.Color.borderStrong(scheme)
+        }
+    }
+
     private func markFill(_ state: OnboardingStepperItem.State) -> Color {
         switch state {
-        case .completed, .active: return .accentColor
-        case .error: return Color(nsColor: .systemRed)
-        case .upcoming: return Color(nsColor: .controlBackgroundColor)
+        case .completed, .active: return Tokens.Color.accent(scheme)
+        case .error:              return Tokens.Color.danger(scheme)
+        case .upcoming:           return Tokens.Color.surface2(scheme)
         }
     }
 
     private func markBorder(_ state: OnboardingStepperItem.State) -> Color {
         switch state {
-        case .completed, .active: return .accentColor
-        case .error: return Color(nsColor: .systemRed)
-        case .upcoming: return Color(nsColor: .separatorColor)
+        case .completed, .active: return Tokens.Color.accent(scheme)
+        case .error:              return Tokens.Color.danger(scheme)
+        case .upcoming:           return Tokens.Color.borderStrong(scheme)
         }
     }
 
     private func labelColor(_ state: OnboardingStepperItem.State) -> Color {
         switch state {
-        case .active: return Color.primary
-        case .completed: return Color.secondary
-        case .error: return Color(nsColor: .systemRed)
-        case .upcoming: return Color(nsColor: .tertiaryLabelColor)
+        case .active:    return Tokens.Color.text(scheme)
+        case .completed: return Tokens.Color.textMuted(scheme)
+        case .error:     return Tokens.Color.danger(scheme)
+        case .upcoming:  return Tokens.Color.textSubtle(scheme)
         }
     }
 }
 
 // MARK: - Preview
 
-#Preview("Stepper — Installing step active") {
+#Preview("Stepper — Installing step active — light") {
     OnboardingStepper(items: [
         OnboardingStepperItem(label: "Checking", state: .completed),
         OnboardingStepperItem(label: "Installing", state: .active),
         OnboardingStepperItem(label: "Signing in", state: .upcoming),
         OnboardingStepperItem(label: "Done", state: .upcoming),
     ])
-    .padding(24)
-    .frame(width: 480)
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 680, height: 80)
+    .background(Tokens.DynamicColor.bg)
 }
 
-#Preview("Stepper — Signing in active") {
+#Preview("Stepper — Installing step active — dark") {
+    OnboardingStepper(items: [
+        OnboardingStepperItem(label: "Checking", state: .completed),
+        OnboardingStepperItem(label: "Installing", state: .active),
+        OnboardingStepperItem(label: "Signing in", state: .upcoming),
+        OnboardingStepperItem(label: "Done", state: .upcoming),
+    ])
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 680, height: 80)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Stepper — Signing in active — light") {
     OnboardingStepper(items: [
         OnboardingStepperItem(label: "Checking", state: .completed),
         OnboardingStepperItem(label: "Installing", state: .completed),
         OnboardingStepperItem(label: "Signing in", state: .active),
         OnboardingStepperItem(label: "Done", state: .upcoming),
     ])
-    .padding(24)
-    .frame(width: 480)
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 680, height: 80)
+    .background(Tokens.DynamicColor.bg)
 }
 
-#Preview("Stepper — All done") {
+#Preview("Stepper — All done — light") {
     OnboardingStepper(items: [
         OnboardingStepperItem(label: "Checking", state: .completed),
         OnboardingStepperItem(label: "Installing", state: .completed),
         OnboardingStepperItem(label: "Signing in", state: .completed),
         OnboardingStepperItem(label: "Connection check", state: .active),
     ])
-    .padding(24)
-    .frame(width: 480)
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 680, height: 80)
+    .background(Tokens.DynamicColor.bg)
 }
 
-#Preview("Stepper — Install failed") {
+#Preview("Stepper — Install failed — light") {
     OnboardingStepper(items: [
         OnboardingStepperItem(label: "Checking", state: .completed),
         OnboardingStepperItem(label: "Installing", state: .error),
         OnboardingStepperItem(label: "Signing in", state: .upcoming),
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
-    .padding(24)
-    .frame(width: 480)
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 680, height: 80)
+    .background(Tokens.DynamicColor.bg)
+}
+
+#Preview("Stepper — Install failed — dark") {
+    OnboardingStepper(items: [
+        OnboardingStepperItem(label: "Checking", state: .completed),
+        OnboardingStepperItem(label: "Installing", state: .error),
+        OnboardingStepperItem(label: "Signing in", state: .upcoming),
+        OnboardingStepperItem(label: "Connection check", state: .upcoming),
+    ])
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 680, height: 80)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
 }
