@@ -1,119 +1,169 @@
 import SwiftUI
 
-// MARK: - TokenButtonStyle
+// MARK: - Button styles
 //
-// Matches the mockup's `.btn-primary`, `.btn-secondary`, `.btn-ghost` classes
-// (guided-onboarding-mockup.html, button block ~lines 351–371).
-// All use Capsule shape, DM Sans weight 500, padding 10×22 at regular size.
+// Five button variants from design-system.md section 06 (Components → Buttons).
+// All use pill radius, DM Sans 16px medium (onboarding context). Hover surface
+// is unified across all variants — `Tokens.Color.surface2(scheme)`.
+//
+// Use these via `.buttonStyle(.tokenPrimary)` etc. Anti-pattern: never use
+// SwiftUI's default Button styling — that pulls Apple gray rounded chrome.
 
-/// Three button styles that match the mockup's button variants.
-struct TokenButtonStyle: ButtonStyle {
-    enum Variant { case primary, secondary, ghost }
-    enum Size { case regular, sm, lg }
-
-    let variant: Variant
-    var size: Size = .regular
+/// Primary — pill, accent-ink fill (light) / brand-200 (dark), white text (light) / ink-900 text (dark).
+/// `.btn-primary` in the mockup. Used for Continue, Install, Save & connect, etc.
+struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var scheme
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(buttonFont(for: size))
-            .padding(.vertical, paddingV(size))
-            .padding(.horizontal, paddingH(size, variant: variant))
-            .foregroundStyle(foreground(variant))
-            .background(background(variant, isPressed: configuration.isPressed))
-            .overlay(border(variant))
+            .font(Tokens.Typography.Onboarding.body.weight(.medium))
+            .padding(.horizontal, Tokens.Spacing.s5)
+            .padding(.vertical, Tokens.Spacing.s3)
+            .foregroundStyle(scheme == .dark ? Tokens.Color.ink900 : Color.white)
+            .background(Tokens.Color.accentInk(scheme))
             .clipShape(Capsule())
-            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
-    }
-
-    // MARK: - Per-variant appearance
-
-    private func foreground(_ variant: Variant) -> Color {
-        switch variant {
-        case .primary:   return Color.white
-        case .secondary: return Color.brandText
-        case .ghost:     return Color.brandTextMuted
-        }
-    }
-
-    @ViewBuilder
-    private func background(_ variant: Variant, isPressed: Bool) -> some View {
-        switch variant {
-        case .primary:
-            PrimaryButtonBackground(isPressed: isPressed)
-        case .secondary, .ghost:
-            Color.clear
-        }
-    }
-
-    @ViewBuilder
-    private func border(_ variant: Variant) -> some View {
-        switch variant {
-        case .primary, .ghost:
-            EmptyView()
-        case .secondary:
-            Capsule().stroke(Color.brandBorderStrong, lineWidth: 1)
-        }
-    }
-
-    // MARK: - Size helpers
-
-    private func buttonFont(for size: Size) -> Font {
-        switch size {
-        case .regular: return Font.custom("DM Sans", size: 14, relativeTo: .body).weight(.medium)
-        case .sm:      return Font.custom("DM Sans", size: 12.5, relativeTo: .footnote).weight(.medium)
-        case .lg:      return Font.custom("DM Sans", size: 16, relativeTo: .body).weight(.medium)
-        }
-    }
-
-    private func paddingV(_ size: Size) -> CGFloat {
-        switch size {
-        case .regular: return 10
-        case .sm:      return 6
-        case .lg:      return 14
-        }
-    }
-
-    private func paddingH(_ size: Size, variant: Variant) -> CGFloat {
-        if variant == .ghost { return 14 }
-        switch size {
-        case .regular: return 22
-        case .sm:      return 14
-        case .lg:      return 28
-        }
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
 }
 
-// MARK: - Primary button background
-//
-// Light scheme: bg = --accent-ink (#0E334D) — dark navy on cream.
-// Dark scheme:  bg = --brand-200  (#75CBF5) — sky blue on dark bg.
-// BrandAccentInk and BrandAccent already encode those respective values
-// per their light/dark asset definitions, so we just pick the right token
-// per scheme rather than hard-coding hex.
-
-private struct PrimaryButtonBackground: View {
+/// Secondary — transparent fill, `border-strong` 1px outline, hovers to surface-2.
+/// `.btn-secondary` in the mockup. Used for "I'm all set", "Try again", etc.
+struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var scheme
-    let isPressed: Bool
 
-    var body: some View {
-        let base: Color = (scheme == .dark) ? .brandAccent : .brandAccentInk
-        base.opacity(isPressed ? 0.85 : 1.0)
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Tokens.Typography.Onboarding.body.weight(.medium))
+            .padding(.horizontal, Tokens.Spacing.s5)
+            .padding(.vertical, Tokens.Spacing.s3)
+            .foregroundStyle(Tokens.Color.text(scheme))
+            .background(
+                Capsule().fill(configuration.isPressed
+                    ? Tokens.Color.surface2(scheme)
+                    : Color.clear)
+            )
+            .overlay(
+                Capsule().strokeBorder(Tokens.Color.borderStrong(scheme), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
 }
 
-// MARK: - Convenience shorthands
+/// Ghost — transparent, text-muted, smaller padding (10×14).
+/// `.btn-ghost` in the mockup. Used for "← Back" and tertiary actions.
+struct GhostButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var scheme
 
-extension ButtonStyle where Self == TokenButtonStyle {
-    /// Dark navy / sky-blue filled pill — primary CTA.
-    static var tokenPrimary: TokenButtonStyle { TokenButtonStyle(variant: .primary) }
-    /// Bordered pill — secondary action.
-    static var tokenSecondary: TokenButtonStyle { TokenButtonStyle(variant: .secondary) }
-    /// Label-only — tertiary / skip actions.
-    static var tokenGhost: TokenButtonStyle { TokenButtonStyle(variant: .ghost) }
-    /// Large primary — used on Welcome and Done screens.
-    static var tokenPrimaryLg: TokenButtonStyle { TokenButtonStyle(variant: .primary, size: .lg) }
-    /// Small ghost — step-level skip / back.
-    static var tokenGhostSm: TokenButtonStyle { TokenButtonStyle(variant: .ghost, size: .sm) }
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Tokens.Typography.Onboarding.small.weight(.medium))
+            .padding(.horizontal, Tokens.Spacing.s4)
+            .padding(.vertical, Tokens.Spacing.s2 + 2) // 10pt
+            .foregroundStyle(Tokens.Color.textMuted(scheme))
+            .background(
+                Capsule().fill(configuration.isPressed
+                    ? Tokens.Color.surface2(scheme)
+                    : Color.clear)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+    }
+}
+
+/// Text link — naked link styling, accent color, optional inline arrow.
+/// `.btn-text` in the mockup.
+struct TextLinkButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var scheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Tokens.Typography.Onboarding.small.weight(.medium))
+            .foregroundStyle(Tokens.Color.accent(scheme))
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+    }
+}
+
+/// Button-in-field — small chip that sits inside an input or code field
+/// (e.g. "Copy", "Paste"). 5pt vertical / 10pt horizontal padding, `--r-xs`
+/// corners, surface-2 hover. `.btn-in-field` in the mockup.
+struct InFieldButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var scheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Tokens.Typography.Onboarding.small.weight(.medium))
+            .padding(.horizontal, Tokens.Spacing.s3 - 2) // 10pt
+            .padding(.vertical, Tokens.Spacing.s1 + 1)   // 5pt
+            .foregroundStyle(Tokens.Color.textMuted(scheme))
+            .background(
+                RoundedRectangle(cornerRadius: Tokens.Radius.xs)
+                    .fill(configuration.isPressed
+                        ? Tokens.Color.surface2(scheme)
+                        : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Tokens.Radius.xs)
+                            .stroke(Tokens.Color.borderStrong(scheme), lineWidth: 1)
+                    )
+            )
+            .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Convenience shorthand
+
+extension ButtonStyle where Self == PrimaryButtonStyle {
+    static var tokenPrimary: PrimaryButtonStyle { PrimaryButtonStyle() }
+}
+
+extension ButtonStyle where Self == SecondaryButtonStyle {
+    static var tokenSecondary: SecondaryButtonStyle { SecondaryButtonStyle() }
+}
+
+extension ButtonStyle where Self == GhostButtonStyle {
+    static var tokenGhost: GhostButtonStyle { GhostButtonStyle() }
+}
+
+extension ButtonStyle where Self == TextLinkButtonStyle {
+    static var tokenTextLink: TextLinkButtonStyle { TextLinkButtonStyle() }
+}
+
+extension ButtonStyle where Self == InFieldButtonStyle {
+    static var tokenInField: InFieldButtonStyle { InFieldButtonStyle() }
+}
+
+// MARK: - Preview
+
+private var buttonGallery: some View {
+    VStack(alignment: .leading, spacing: Tokens.Spacing.s4) {
+        Button("Install Codex CLI") {}
+            .buttonStyle(.tokenPrimary)
+
+        Button("I'm all set — show my usage") {}
+            .buttonStyle(.tokenSecondary)
+
+        Button("← Back") {}
+            .buttonStyle(.tokenGhost)
+
+        Button("Open the guided setup →") {}
+            .buttonStyle(.tokenTextLink)
+
+        Button("Paste") {}
+            .buttonStyle(.tokenInField)
+    }
+    .padding(Tokens.Spacing.s5)
+    .background(Tokens.DynamicColor.bg)
+}
+
+#Preview("Button variants — light") {
+    buttonGallery
+        .frame(width: 360, height: 320)
+}
+
+#Preview("Button variants — dark") {
+    buttonGallery
+        .preferredColorScheme(.dark)
+        .frame(width: 360, height: 320)
 }
