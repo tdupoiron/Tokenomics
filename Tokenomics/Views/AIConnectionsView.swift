@@ -63,30 +63,33 @@ struct AIConnectionsView: View {
     /// Quiet recovery affordance for users who land on Connections looking
     /// to add a provider but want the guided walk-through. Sits above the
     /// scroll so it stays visible regardless of list length.
+    ///
+    /// mockup .popover-help (lines 703–712):
+    ///   bg accent@8%, border-bottom 1px border, padding 11×16, 12.5px, text-muted link
     private var helpBanner: some View {
-        HStack(spacing: 6) {
-            Text("Need help?")
-                .scaledFont(.caption2)
-                .foregroundStyle(.secondary)
+        HStack(spacing: Tokens.Spacing.s1 + 2) { // 6pt
+            Text("Need help connecting a provider?")
+                .font(Tokens.Typography.App.caption)
+                .foregroundStyle(Tokens.Color.textMuted(colorScheme))
+
+            Spacer()
 
             Button {
                 openWindow(id: "onboarding")
             } label: {
-                Text("Open guided setup →")
-                    .scaledFont(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundStyle(Color.accentColor)
+                Text("Open the guided setup →")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Tokens.Color.brand600)  // always brand-600 (accent is fine too; brand-600 matches mockup .text-link color)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.08))
+        .padding(.horizontal, Tokens.Spacing.s4) // 16pt — mockup padding: 11px 16px
+        .padding(.vertical, 11)                   // 11pt — mockup padding-vertical: 11px
+        .background(Tokens.Color.brand600.opacity(0.08)) // mockup: accent@8%
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color(nsColor: .separatorColor))
-                .frame(height: 0.5)
+                .fill(Tokens.Color.border(colorScheme))
+                .frame(height: 1)
         }
     }
 

@@ -573,9 +573,11 @@ struct PopoverView: View {
 
     // MARK: - Onboarding Launcher Card
 
-    /// Shown in the popover before the user completes setup — same headline + lede
-    /// style as the rest of the popover. Tapping the button opens the persistent
-    /// onboarding window. Connection count gives the user progress context on re-entry.
+    /// Shown in the popover before the user completes setup.
+    /// Tapping the button opens the persistent onboarding window.
+    ///
+    /// The help banner style matches mockup .popover-help (lines 703–712):
+    ///   bg accent@8%, 11×16 padding, 12.5px text-muted copy, accent link.
     private var onboardingLauncherCard: some View {
         let connected = viewModel.connectedProviders.count
         let total = viewModel.installedProviders.count + viewModel.connectedProviders.count
@@ -586,31 +588,43 @@ struct PopoverView: View {
         return VStack(spacing: 10) {
             Image(systemName: "link.badge.plus")
                 .font(.system(size: 26))
-                .foregroundStyle(.tint)
+                .foregroundStyle(Tokens.Color.brand600)
                 .padding(.bottom, 2)
 
             Text("Set up your providers")
-                .scaledFont(.headline)
-                .fontWeight(.semibold)
+                .font(Tokens.Typography.App.sectionTitle)
+                .foregroundStyle(Tokens.DynamicColor.text)
 
             Text(subtitle)
-                .scaledFont(.caption)
-                .foregroundStyle(.secondary)
+                .font(Tokens.Typography.App.caption)
+                .foregroundStyle(Tokens.DynamicColor.textMuted)
                 .multilineTextAlignment(.center)
 
-            Button("Open setup window") {
-                openWindow(id: "onboarding")
+            // Help banner inline — same accent@8% tint as popover-help
+            HStack(spacing: 6) {
+                Text("Need help connecting?")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Tokens.DynamicColor.textMuted)
+                Spacer()
+                Button("Open the guided setup →") {
+                    openWindow(id: "onboarding")
+                }
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(Tokens.Color.brand600)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .background(Tokens.Color.brand600.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
             .padding(.top, 4)
 
             Button("Skip for now") {
                 viewModel.completeOnboarding()
             }
             .buttonStyle(.plain)
-            .scaledFont(.caption)
-            .foregroundStyle(.tertiary)
+            .font(Tokens.Typography.App.tiny)
+            .foregroundStyle(Tokens.DynamicColor.textSubtle)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 28)
