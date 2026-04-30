@@ -1,39 +1,42 @@
 import SwiftUI
 
 /// Universal connector view — handles every provider's "from zero to connected"
-/// flow with consistent chrome. Currently implements Quick mode; Guided mode
-/// (multi-step wizard with progress + device-code surface) lives behind the
-/// same view model and will be added in a follow-up.
+/// flow with consistent chrome. Routes between step types based on `step` enum.
 struct ConnectorView: View {
     @ObservedObject var viewModel: ConnectorViewModel
     var onBack: (() -> Void)? = nil
 
-    @Environment(\.tokenomicsTextSize) private var textSize
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(spacing: 0) {
+            // Titlebar-style header
             header
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Tokens.Spacing.s4)
+                .padding(.top, Tokens.Spacing.s3)
+                .padding(.bottom, Tokens.Spacing.s2)
 
             // 4-segment step indicator — hidden on states that don't warrant it.
             if !viewModel.stepperItems.isEmpty {
                 OnboardingStepper(items: viewModel.stepperItems)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
+                    .padding(.horizontal, Tokens.Spacing.s4)
+                    .padding(.bottom, Tokens.Spacing.s2 + 2)
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.2), value: viewModel.stepperItems)
+                    .animation(.easeInOut(duration: Tokens.Motion.standard), value: viewModel.stepperItems)
             }
 
             Divider()
+                .overlay(Tokens.Color.border(scheme))
 
             ScrollView {
                 content
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                    // winbody inset: padding 32px 40px 28px from mockup
+                    // ConnectorView uses a tighter inset since the stepper + header take space
+                    .padding(.horizontal, Tokens.Spacing.s5)
+                    .padding(.vertical, Tokens.Spacing.s4)
             }
         }
+        .background(Tokens.DynamicColor.bg.ignoresSafeArea())
         .navigationTitle("Connect \(viewModel.providerName)")
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
@@ -41,44 +44,45 @@ struct ConnectorView: View {
 
     // MARK: - Header
 
+    /// Centered provider name with optional Back button (left) + invisible balance (right).
     private var header: some View {
         HStack {
             if let onBack {
                 Button(action: onBack) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Tokens.Spacing.s1) {
                         Image(systemName: "chevron.left")
                         Text("Back")
                     }
-                    .scaledFont(.caption)
-                    .padding(.vertical, 4)
-                    .padding(.trailing, 8)
+                    .font(Tokens.Typography.Onboarding.small.weight(.medium))
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
+                    .padding(.vertical, Tokens.Spacing.s1)
+                    .padding(.trailing, Tokens.Spacing.s2)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
             }
 
             Spacer()
 
             Text("Connect \(viewModel.providerName)")
-                .scaledFont(.headline)
-                .fontWeight(.medium)
+                .font(Tokens.Typography.Onboarding.windowTitle)
+                .foregroundStyle(Tokens.Color.textMuted(scheme))
 
             Spacer()
 
             // Invisible balance for centering when there's a back button.
             if onBack != nil {
-                HStack(spacing: 4) {
+                HStack(spacing: Tokens.Spacing.s1) {
                     Image(systemName: "chevron.left")
                     Text("Back")
                 }
-                .scaledFont(.caption)
+                .font(Tokens.Typography.Onboarding.small.weight(.medium))
                 .hidden()
             }
         }
     }
 
-    // MARK: - Content
+    // MARK: - Content router
 
     @ViewBuilder
     private var content: some View {
@@ -118,7 +122,6 @@ struct ConnectorView: View {
             )
         case .openProviderSite(let headline, let body, let ctaLabel):
             // Pattern E step 1 — reuses the confirm-screen chrome with provider-site framing.
-            // No command preview (it's a URL, not a shell command).
             ConfirmInstallStep(
                 title: headline,
                 description: body,
@@ -142,7 +145,8 @@ struct ConnectorView: View {
         }
     }
 
-    /// The shared "before connected" body — header row + status pill + CTA stack.
+    // MARK: - In-progress state (shared "before connected" body)
+
     private var inProgressState: some View {
         VStack(alignment: .leading, spacing: 0) {
             connectorHeader
@@ -150,11 +154,10 @@ struct ConnectorView: View {
             statusPill
 
             helpLink
-                .padding(.top, 2)
+                .padding(.top, Tokens.Spacing.s1 - 2)
 
-            // 36pt breathing room above the primary CTA — matches the mockup.
             actionStack
-                .padding(.top, 36)
+                .padding(.top, Tokens.Spacing.s7 - 12) // 36pt breathing room above CTA
         }
     }
 
@@ -164,16 +167,17 @@ struct ConnectorView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(viewModel.providerName)
-                    .scaledFont(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(Tokens.Typography.Onboarding.h3)
+                    .foregroundStyle(Tokens.Color.text(scheme))
+
                 Text(headerSubtext)
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.Onboarding.small)
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.bottom, 8)
+        .padding(.bottom, Tokens.Spacing.s2)
     }
 
     /// Sub-line under the provider name — varies by step.
@@ -195,17 +199,7 @@ struct ConnectorView: View {
             return "One quick confirmation before we continue."
         case .awaitingOAuth:
             return "Sign in in your browser to continue."
-        case .previewExternalSteps:
-            // Full-screen replacement — subtext not shown.
-            return ""
-        case .awaitingExternalAuth:
-            // Full-screen replacement — subtext not shown.
-            return ""
-        case .openProviderSite:
-            // Full-screen replacement — subtext not shown.
-            return ""
-        case .pasteAPIKey:
-            // Full-screen replacement — subtext not shown.
+        case .previewExternalSteps, .awaitingExternalAuth, .openProviderSite, .pasteAPIKey:
             return ""
         case .connected:
             return "Connected."
@@ -214,15 +208,13 @@ struct ConnectorView: View {
         }
     }
 
+    // MARK: - Status pill
+
     @ViewBuilder
     private var statusPill: some View {
         switch viewModel.step {
-        // These steps are full-screen replacements — no status pill.
         case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth,
-             .openProviderSite, .pasteAPIKey:
-            EmptyView()
-        case .needsAction:
-            // No pill — primary CTA explains the next action.
+             .openProviderSite, .pasteAPIKey, .needsAction:
             EmptyView()
         case .waitingForExternalApp:
             statusBadge(icon: .waiting, text: "Waiting for \(viewModel.providerName) — we'll detect it as soon as it's installed.")
@@ -236,7 +228,7 @@ struct ConnectorView: View {
             statusBadge(icon: .waiting, text: "Waiting for you to approve in your browser…")
             if let code, !code.isEmpty {
                 deviceCodeRow(code)
-                    .padding(.top, 8)
+                    .padding(.top, Tokens.Spacing.s2)
             }
         case .connected, .failed:
             EmptyView()
@@ -251,8 +243,8 @@ struct ConnectorView: View {
             if let url {
                 Link(destination: url) {
                     Text("Need help? Step-by-step guide")
-                        .scaledFont(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .font(Tokens.Typography.Onboarding.micro)
+                        .foregroundStyle(Tokens.Color.textSubtle(scheme))
                 }
             }
             Spacer()
@@ -261,31 +253,23 @@ struct ConnectorView: View {
 
     @ViewBuilder
     private var actionStack: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Tokens.Spacing.s2 + 2) { // 10pt
             Button(primaryCTALabel) {
                 viewModel.tappedPrimary()
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
+            .buttonStyle(.tokenPrimary)
 
-            // `.plain` style avoids the focus-loss that dismisses the
-            // MenuBarExtra(.window) panel on click. Matches LoginView's
-            // secondary "Refresh" pattern.
             Button("Cancel") {
                 viewModel.tappedCancel()
                 onBack?()
             }
-            .buttonStyle(.plain)
-            .scaledFont(.caption)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.tokenGhost)
         }
         .frame(maxWidth: .infinity)
     }
 
     private var primaryCTALabel: String {
         switch viewModel.step {
-        // These steps own their own buttons — the action stack won't render for them
-        // because `content` routes them to dedicated full-screen views.
         case .detecting, .confirmingInstall, .previewExternalSteps, .awaitingExternalAuth,
              .openProviderSite, .pasteAPIKey:
             return ""
@@ -312,95 +296,126 @@ struct ConnectorView: View {
 
     private func connectedState(plan: String) -> some View {
         VStack(spacing: 0) {
-            Image(systemName: "checkmark.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 48, height: 48)
-                .foregroundStyle(.green)
-                .padding(.top, 6)
-                .padding(.bottom, 14)
+            // Done check — design-system.md: 64×64 circle, success@16% alpha, success checkmark
+            ZStack {
+                Circle()
+                    .fill(Tokens.Color.success(scheme).opacity(0.16))
+                Image(systemName: "checkmark")
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(Tokens.Color.success(scheme))
+            }
+            .frame(width: 64, height: 64)
+            .padding(.top, Tokens.Spacing.s1 + 2)
+            .padding(.bottom, Tokens.Spacing.s4 + 2) // 18pt
 
             Text("\(viewModel.providerName) is connected.")
-                .scaledFont(.headline)
-                .fontWeight(.semibold)
+                .font(Tokens.Typography.Onboarding.h1)
+                .foregroundStyle(Tokens.Color.text(scheme))
                 .multilineTextAlignment(.center)
 
             Text("Tokenomics is now reading your \(viewModel.providerName) usage.")
-                .scaledFont(.caption)
-                .foregroundStyle(.secondary)
+                .font(Tokens.Typography.Onboarding.lede)
+                .foregroundStyle(Tokens.Color.textMuted(scheme))
                 .multilineTextAlignment(.center)
-                .padding(.top, 4)
+                .padding(.top, Tokens.Spacing.s1)
 
             Text("Want to add another, or jump in?")
-                .scaledFont(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
+                .font(Tokens.Typography.Onboarding.lede)
+                .foregroundStyle(Tokens.Color.textMuted(scheme))
+                .padding(.top, Tokens.Spacing.s1)
                 .multilineTextAlignment(.center)
 
-            VStack(spacing: 10) {
+            VStack(spacing: Tokens.Spacing.s2 + 2) { // 10pt
                 Button("Add another provider") {
                     viewModel.tappedAddAnother()
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
+                .buttonStyle(.tokenPrimary)
 
-                // `.plain` keeps the panel from dismissing on click.
                 Button("I'm all set — show my usage") {
                     viewModel.tappedAllSet()
                 }
-                .buttonStyle(.plain)
-                .scaledFont(.caption)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.tokenGhost)
             }
-            .padding(.top, 36)
+            .padding(.top, Tokens.Spacing.s7 - 12) // 36pt
 
             Text("Add or remove anytime in **Settings → Connections**.")
-                .scaledFont(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(Tokens.Typography.Onboarding.small)
+                .foregroundStyle(Tokens.Color.textSubtle(scheme))
                 .multilineTextAlignment(.center)
-                .padding(.top, 12)
+                .padding(.top, Tokens.Spacing.s3)
         }
         .frame(maxWidth: .infinity)
     }
 
     // MARK: - Error state
 
+    /// Inline failure block — mockup .errblock pattern:
+    ///   bg danger@8%, border danger@30%, r-sm, 14px semibold danger heading.
     private func errorState(error: ConnectorError) -> some View {
         VStack(spacing: 0) {
             connectorHeader
 
-            statusBadge(icon: .warning, text: error.userFacingMessage)
+            // Error block — mockup .errblock (lines 1022–1032)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.s1) {
+                Text(error.userFacingMessage)
+                    .font(Tokens.Typography.Onboarding.body.weight(.semibold))
+                    .foregroundStyle(Tokens.Color.danger(scheme))
 
-            VStack(spacing: 10) {
+                // Recovery hint below heading if the message is short
+                if let detail = errorDetail(for: error) {
+                    Text(detail)
+                        .font(Tokens.Typography.Onboarding.small)
+                        .foregroundStyle(Tokens.Color.textMuted(scheme))
+                        .padding(.top, Tokens.Spacing.s1 - 2)
+                }
+            }
+            .padding(.horizontal, Tokens.Spacing.s4)
+            .padding(.vertical, Tokens.Spacing.s4 - 2) // 14pt
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Tokens.Color.danger(scheme).opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: Tokens.Radius.sm)
+                    .strokeBorder(Tokens.Color.danger(scheme).opacity(0.30), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
+            .padding(.top, Tokens.Spacing.s4)
+
+            VStack(spacing: Tokens.Spacing.s2 + 2) { // 10pt
                 Button(error.recoveryActionLabel) {
                     if case .automationPermissionDenied = error {
-                        // Open the Automation section in System Settings directly.
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
                             NSWorkspace.shared.open(url)
                         }
                     } else if case .permissionDenied = error {
-                        // Clear npm cache before retrying to resolve stale bad-ownership.
                         viewModel.tappedPermissionDeniedRecovery()
                     } else {
                         viewModel.tappedRecovery()
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
+                .buttonStyle(.tokenPrimary)
 
                 if let onBack {
                     Button("Cancel") { onBack() }
-                        .buttonStyle(.plain)
-                        .scaledFont(.caption)
-                        .foregroundStyle(.secondary)
+                        .buttonStyle(.tokenGhost)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 36)
+            .padding(.top, Tokens.Spacing.s7 - 12) // 36pt
         }
     }
 
-    // MARK: - Pieces
+    private func errorDetail(for error: ConnectorError) -> String? {
+        switch error {
+        case .permissionDenied:
+            return "EACCES: permission denied — try the per-user install path."
+        case .automationPermissionDenied:
+            return "Open System Settings → Privacy & Security → Automation to grant access."
+        default:
+            return nil
+        }
+    }
+
+    // MARK: - Piece views
 
     private enum BadgeIcon { case waiting, success, warning }
 
@@ -412,59 +427,60 @@ struct ConnectorView: View {
                     ProgressView().controlSize(.small)
                 case .success:
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Tokens.Color.success(scheme))
                 case .warning:
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Tokens.Color.warning(scheme))
                 }
             }
             .frame(width: 14, height: 14)
 
             Text(text)
-                .scaledFont(.caption)
-                .foregroundStyle(.primary)
+                .font(Tokens.Typography.Onboarding.small)
+                .foregroundStyle(Tokens.Color.text(scheme))
 
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.4))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(Tokens.Color.surface2(scheme))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
     }
 
     private func installingPill(progress: Double?) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.s1 + 2) { // 6pt
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
-                .tint(.accentColor)
+                .tint(Tokens.Color.accent(scheme))
             HStack {
                 Text("Almost there")
-                    .scaledFont(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.Onboarding.micro)
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
                 Spacer()
                 if let progress {
                     Text("\(Int(progress * 100))%")
-                        .scaledFont(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(Tokens.Typography.Onboarding.micro)
+                        .foregroundStyle(Tokens.Color.textMuted(scheme))
+                        .monospacedDigit()
                 }
             }
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.4))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(Tokens.Color.surface2(scheme))
+        .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
     }
 
     private func deviceCodeRow(_ code: String) -> some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("If asked for a code")
-                    .scaledFont(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(Tokens.Typography.Onboarding.micro)
+                    .foregroundStyle(Tokens.Color.textSubtle(scheme))
                     .textCase(.uppercase)
                 Text(code)
-                    .font(.system(.title3, design: .monospaced))
-                    .fontWeight(.semibold)
+                    .font(.system(size: 20, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Tokens.Color.text(scheme))
                     .textSelection(.enabled)
             }
             Spacer()
@@ -473,23 +489,24 @@ struct ConnectorView: View {
                 NSPasteboard.general.setString(code, forType: .string)
             } label: {
                 Image(systemName: "doc.on.doc")
-                    .scaledFont(.caption)
+                    .font(Tokens.Typography.Onboarding.small)
+                    .foregroundStyle(Tokens.Color.textMuted(scheme))
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
             .help("Copy code")
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), style: StrokeStyle(lineWidth: 0.5, dash: [3]))
+            RoundedRectangle(cornerRadius: Tokens.Radius.sm)
+                .strokeBorder(
+                    Tokens.Color.borderStrong(scheme).opacity(0.6),
+                    style: StrokeStyle(lineWidth: 0.5, dash: [3])
+                )
         )
     }
 
     // MARK: - Per-provider copy helpers
-    //
-    // Lightweight string mapping until each connector overrides its own copy.
-    // Centralizing here keeps the view file standalone for the first iteration.
 
     private func needsActionSubtext(for provider: ProviderId) -> String {
         switch provider {
