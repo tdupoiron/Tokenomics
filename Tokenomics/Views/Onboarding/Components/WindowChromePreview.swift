@@ -29,20 +29,23 @@ struct WindowChromePreview<Content: View>: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Tokens.Spacing.s3)
 
-            // Stepper
-            OnboardingStepper(items: stepperItems)
-                .padding(.horizontal, Tokens.Spacing.s4)
-                .padding(.bottom, Tokens.Spacing.s2 + 2)
-
-            // Header / stepper divider
+            // Divider — sits BETWEEN titlebar and stepper (mockup pattern,
+            // not between stepper and content).
             Rectangle()
                 .fill(Tokens.Color.border(scheme))
                 .frame(height: 1)
 
-            // Content body — same inset ConnectorView applies
+            // Stepper
+            OnboardingStepper(items: stepperItems)
+                .padding(.horizontal, Tokens.Spacing.s4)
+                .padding(.top, Tokens.Spacing.s4)
+                .padding(.bottom, Tokens.Spacing.s2)
+
+            // Content body — mockup .winbody: padding 32px 40px 28px
             content
-                .padding(.horizontal, Tokens.Spacing.s5)
-                .padding(.vertical, Tokens.Spacing.s4)
+                .padding(.top, Tokens.Spacing.s6)        // 32pt
+                .padding(.horizontal, 40)                // 40pt — mockup literal
+                .padding(.bottom, Tokens.Spacing.s5 + 4) // 28pt
         }
         .background(Tokens.DynamicColor.bg)
     }

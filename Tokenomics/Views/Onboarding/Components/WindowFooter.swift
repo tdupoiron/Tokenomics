@@ -37,19 +37,28 @@ struct WindowFooter<Leading: View, Trailing: View>: View {
 
 // MARK: - Convenience: standard "← Back" button
 
-/// Mockup "← Back" .btn-ghost.btn-sm — chevron + label, text-muted, smaller padding.
-/// Drop into a `WindowFooter`'s leading slot via `BackLink(action: onBack)`.
+/// Mockup "← Back" .btn-ghost — arrow + label, text-muted (tuned lighter
+/// per visual review), smaller arrow than text. Drop into a `WindowFooter`'s
+/// leading slot via `BackLink(action: onBack)`.
 struct BackLink: View {
     let action: () -> Void
+
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: Tokens.Spacing.s1) {
                 Image(systemName: "arrow.left")
+                    .font(.system(size: 10, weight: .medium)) // smaller than label
                 Text("Back")
+                    .font(Tokens.Typography.Onboarding.small) // 13pt regular (lighter than the medium-weight ghost default)
             }
+            .foregroundStyle(Tokens.Color.textMuted(scheme))
+            .padding(.horizontal, Tokens.Spacing.s3)
+            .padding(.vertical, Tokens.Spacing.s2)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.tokenGhost)
+        .buttonStyle(.plain)
     }
 }
 

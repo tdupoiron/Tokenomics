@@ -157,8 +157,9 @@ struct DetectStep: View {
     /// Bold name + optional muted suffix in one line. Uses Text concatenation
     /// so the line wraps as a single block if long.
     private func nameWithSuffix(_ item: DetectionItem) -> some View {
+        // Mockup .check-row .label: 14pt, font-weight 500 (medium).
         let nameText = Text(item.name)
-            .font(Tokens.Typography.Onboarding.body.weight(.semibold))
+            .font(Tokens.Typography.Onboarding.body.weight(.medium))
             .foregroundColor(Tokens.Color.text(scheme))
 
         if let suffix = item.nameSuffix {

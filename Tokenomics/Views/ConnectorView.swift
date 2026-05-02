@@ -16,24 +16,28 @@ struct ConnectorView: View {
                 .padding(.top, Tokens.Spacing.s3)
                 .padding(.bottom, Tokens.Spacing.s2)
 
+            // Divider sits BETWEEN titlebar and stepper (mockup pattern,
+            // not between stepper and content).
+            Rectangle()
+                .fill(Tokens.Color.border(scheme))
+                .frame(height: 1)
+
             // 4-segment step indicator — hidden on states that don't warrant it.
             if !viewModel.stepperItems.isEmpty {
                 OnboardingStepper(items: viewModel.stepperItems)
                     .padding(.horizontal, Tokens.Spacing.s4)
-                    .padding(.bottom, Tokens.Spacing.s2 + 2)
+                    .padding(.top, Tokens.Spacing.s4)
+                    .padding(.bottom, Tokens.Spacing.s2)
                     .transition(.opacity)
                     .animation(.easeInOut(duration: Tokens.Motion.standard), value: viewModel.stepperItems)
             }
 
-            Divider()
-                .overlay(Tokens.Color.border(scheme))
-
             ScrollView {
                 content
-                    // winbody inset: padding 32px 40px 28px from mockup
-                    // ConnectorView uses a tighter inset since the stepper + header take space
-                    .padding(.horizontal, Tokens.Spacing.s5)
-                    .padding(.vertical, Tokens.Spacing.s4)
+                    // winbody inset — mockup .winbody: padding 32px 40px 28px
+                    .padding(.top, Tokens.Spacing.s6)        // 32pt
+                    .padding(.horizontal, 40)                // 40pt — mockup literal
+                    .padding(.bottom, Tokens.Spacing.s5 + 4) // 28pt
             }
         }
         .background(Tokens.DynamicColor.bg.ignoresSafeArea())

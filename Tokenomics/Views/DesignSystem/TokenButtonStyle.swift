@@ -71,25 +71,54 @@ struct PrimaryButtonStyle: ButtonStyle {
 /// Secondary — transparent fill, `border-strong` 1px outline, hovers to surface-2.
 /// `.btn-secondary` in the mockup. Used for "I'm all set", "Try again", etc.
 struct SecondaryButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) private var scheme
     var size: TokenButtonSize = .regular
 
     func makeBody(configuration: Configuration) -> some View {
+        SecondaryButtonBody(configuration: configuration, size: size)
+    }
+}
+
+/// Body view for `SecondaryButtonStyle`. Lifted out so we can read
+/// `@Environment(\.isEnabled)` (only available inside a View, not a ButtonStyle)
+/// and render disabled state with lighter token colors instead of a brute
+/// `.opacity(0.6)` on the whole button (which dims text + border equally and
+/// reads darker than the design target's softer disabled appearance).
+private struct SecondaryButtonBody: View {
+    let configuration: ButtonStyle.Configuration
+    let size: TokenButtonSize
+
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
         configuration.label
             .font(size.font)
             .padding(.horizontal, size.horizontalPadding)
             .padding(.vertical, size.verticalPadding)
-            .foregroundStyle(Tokens.Color.text(scheme))
+            .foregroundStyle(textColor)
             .background(
                 Capsule().fill(configuration.isPressed
                     ? Tokens.Color.surface2(scheme)
                     : Color.clear)
             )
             .overlay(
-                Capsule().strokeBorder(Tokens.Color.borderStrong(scheme), lineWidth: 1)
+                Capsule().strokeBorder(borderColor, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
+    }
+
+    /// Disabled secondary buttons get textMuted (0.64) — softer than the full
+    /// `text` color. No additional .opacity() — keeps text and border legible
+    /// instead of compounding alphas.
+    private var textColor: Color {
+        isEnabled ? Tokens.Color.text(scheme) : Tokens.Color.textMuted(scheme)
+    }
+
+    /// Disabled border drops from border-strong (0.22) to border (0.12) —
+    /// matches the lighter outline in the mockup's disabled-state buttons.
+    private var borderColor: Color {
+        isEnabled ? Tokens.Color.borderStrong(scheme) : Tokens.Color.border(scheme)
     }
 }
 
