@@ -183,10 +183,7 @@ struct AwaitExternalAuthView: View {
     /// padding 14×16, accent spinner + 13px textMuted message.
     private var pollingPill: some View {
         HStack(alignment: .center, spacing: Tokens.Spacing.s2 + 2) { // 10pt
-            ProgressView()
-                .controlSize(.small)
-                .tint(Tokens.Color.accent(scheme))
-                .frame(width: 14, height: 14)
+            CircularSpinner(size: 14, color: Tokens.Color.accent(scheme))
 
             // Inline mono `~/.claude` chip — mockup line 2602
             (Text("Watching ")

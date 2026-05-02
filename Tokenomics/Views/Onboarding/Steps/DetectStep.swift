@@ -187,8 +187,7 @@ struct DetectStep: View {
                 .strokeBorder(Tokens.Color.textSubtle(scheme), lineWidth: 1.5)
                 .frame(width: 14, height: 14)
         case .checking:
-            ProgressView()
-                .controlSize(.small)
+            CircularSpinner(size: 14, color: Tokens.Color.accent(scheme))
         }
     }
 
@@ -207,8 +206,7 @@ struct DetectStep: View {
             Spacer()
 
             VStack(spacing: Tokens.Spacing.s3) {
-                ProgressView()
-                    .controlSize(.large)
+                CircularSpinner(size: 32, lineWidth: 3, color: Tokens.Color.accent(scheme))
                     .padding(.bottom, Tokens.Spacing.s1)
 
                 Text("Checking your Mac…")
@@ -303,3 +301,16 @@ private let detectStepperItems: [OnboardingStepperItem] = [
     .frame(width: 720, height: 560)
     .preferredColorScheme(.light)
 }
+
+#Preview("Detect — Spinner fallback (dark)") {
+    WindowChromePreview(title: "Connect Cursor", stepperItems: detectStepperItems) {
+        DetectStep(subtitle: "Checking for Cursor.app…", onBack: {})
+    }
+    .frame(width: 720, height: 560)
+    .preferredColorScheme(.dark)
+}
+
+#Preview {
+    DetectStep(items: codexDevMacItems, subtitle: "Looking for the tools needed to connect Codex.", onBack: {})
+}
+
