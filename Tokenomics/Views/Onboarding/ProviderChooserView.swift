@@ -291,8 +291,9 @@ private func chooserPreview() -> some View {
         onAllSet: {},
         onBack: {}
     )
+    // Chooser winbody inset — matches mockup .winbody padding: 32px 40px 28px
     .padding(.top, Tokens.Spacing.s6)        // 32pt
-    .padding(.horizontal, Tokens.Spacing.s7) // 48pt — matches ConnectorContainer
+    .padding(.horizontal, 40)                // 40pt — mockup literal
     .padding(.bottom, Tokens.Spacing.s5 + 4) // 28pt
 }
 
