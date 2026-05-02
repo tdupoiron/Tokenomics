@@ -92,7 +92,8 @@ struct ConnectorView: View {
         case .failed(let error):
             errorState(error: error)
         case .detecting:
-            DetectStep(message: detectMessage(for: viewModel.providerId))
+            DetectStep(items: detectionItems(for: viewModel.providerId),
+                       subtitle: detectSubtitle(for: viewModel.providerId))
         case .confirmingInstall(let title, let body, let commandPreview, let footnote, let skipLabel):
             ConfirmInstallStep(
                 title: title,
@@ -532,11 +533,103 @@ struct ConnectorView: View {
         }
     }
 
-    private func detectMessage(for provider: ProviderId) -> String {
+    private func detectSubtitle(for provider: ProviderId) -> String {
         switch provider {
-        case .codex: return "Checking for Homebrew, Node.js, and the Codex CLI…"
-        case .gemini: return "Checking for Homebrew, Node.js, and the Gemini CLI…"
-        default: return "Checking your Mac…"
+        case .codex:   return "Looking for the tools needed to connect Codex."
+        case .gemini:  return "Looking for the tools needed to connect Gemini."
+        case .claude:  return "Looking for the tools needed to connect Claude Code."
+        case .copilot: return "Looking for the tools needed to connect Copilot."
+        case .cursor:  return "Checking for the Cursor app…"
+        default:       return "Checking your Mac…"
         }
+    }
+
+    /// Builds the per-prereq DetectionItem list from `SystemPrerequisiteDetector`'s
+    /// synchronous filesystem checks. Empty for providers without a prereq chain
+    /// (Cursor app-bundle wait, API-key paste) — DetectStep falls back to spinner.
+    private func detectionItems(for provider: ProviderId) -> [DetectionItem] {
+        switch provider {
+        case .codex:
+            return [
+                brewItem(),
+                nodeItem(),
+                npmCLIItem(name: "Codex CLI", binary: "codex", package: "@openai/codex"),
+            ]
+        case .gemini:
+            return [
+                brewItem(),
+                nodeItem(),
+                npmCLIItem(name: "Gemini CLI", binary: "gemini", package: "@google/gemini-cli"),
+            ]
+        case .claude:
+            // Claude Code ships as a Homebrew cask — no Node needed.
+            return [
+                brewItem(),
+                claudeItem(),
+            ]
+        case .copilot:
+            return [
+                brewItem(),
+                ghItem(),
+            ]
+        default:
+            // Cursor (app-bundle), API-key providers, etc. — spinner fallback.
+            return []
+        }
+    }
+
+    // MARK: - DetectionItem builders (synchronous filesystem reads)
+
+    private func brewItem() -> DetectionItem {
+        if let url = SystemPrerequisiteDetector.homebrewPath() {
+            return DetectionItem(name: "Homebrew", sublabel: url.path, status: .installed)
+        }
+        return DetectionItem(name: "Homebrew",
+                             sublabel: "Package manager for macOS",
+                             status: .notInstalled)
+    }
+
+    private func nodeItem() -> DetectionItem {
+        if let url = SystemPrerequisiteDetector.nodePath() {
+            // Node + version (best-effort — read symlink target if available)
+            return DetectionItem(name: "Node.js",
+                                 nameSuffix: "(includes npm)",
+                                 sublabel: url.path,
+                                 status: .installed)
+        }
+        return DetectionItem(name: "Node.js",
+                             nameSuffix: "(includes npm)",
+                             sublabel: "Required by the CLI",
+                             status: .notInstalled)
+    }
+
+    private func npmCLIItem(name: String, binary: String, package: String) -> DetectionItem {
+        if let url = SystemPrerequisiteDetector.tokenomicsNpmBinPath(binary) {
+            return DetectionItem(name: name, sublabel: url.path, status: .installed)
+        }
+        return DetectionItem(name: name, sublabel: package, status: .notInstalled)
+    }
+
+    private func claudeItem() -> DetectionItem {
+        let candidates = ["/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
+        if let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
+            return DetectionItem(name: "Claude Code", sublabel: path, status: .installed)
+        }
+        return DetectionItem(name: "Claude Code",
+                             sublabel: "Anthropic's CLI",
+                             status: .notInstalled)
+    }
+
+    private func ghItem() -> DetectionItem {
+        if let url = SystemPrerequisiteDetector.ghPath() {
+            return DetectionItem(name: "GitHub CLI",
+                                 nameSuffix: "(gh)",
+                                 sublabel: url.path,
+                                 status: .installed)
+        }
+        return DetectionItem(name: "GitHub CLI",
+                             nameSuffix: "(gh)",
+                             sublabel: "Used to authenticate Copilot",
+                             status: .notInstalled)
     }
 }
