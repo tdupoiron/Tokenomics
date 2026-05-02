@@ -59,6 +59,10 @@ struct DetectStep: View {
     /// to connect Codex." Used in both the spinner fallback and the rich layout.
     var subtitle: String
 
+    /// Tapped on the "← Back" link in the footer. Optional — omit to hide
+    /// the back affordance (e.g. when DetectStep is the very first screen).
+    var onBack: (() -> Void)? = nil
+
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -94,16 +98,18 @@ struct DetectStep: View {
 
             Spacer(minLength: Tokens.Spacing.s5)
 
-            // Footer — disabled "Continuing…" secondary button.
-            // The connector auto-advances; the button is just affordance.
-            HStack {
-                Spacer()
+            // Footer — divider + Back link + disabled "Continuing…" secondary.
+            // Standard component shared across every step view.
+            WindowFooter {
+                if let onBack {
+                    BackLink(action: onBack)
+                }
+            } trailing: {
                 Button("Continuing…") {}
                     .buttonStyle(.tokenSecondary)
                     .disabled(true)
                     .opacity(0.6)
             }
-            .padding(.top, Tokens.Spacing.s4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -123,7 +129,7 @@ struct DetectStep: View {
             VStack(alignment: .leading, spacing: 2) {
                 nameWithSuffix(item)
                 Text(item.sublabel)
-                    .font(.system(size: 12, design: .monospaced)) // path / package looks better mono
+                    .font(Tokens.Typography.Onboarding.small) // DM Sans 13pt — proportional, not mono
                     .foregroundStyle(Tokens.Color.textMuted(scheme))
             }
 
@@ -134,8 +140,8 @@ struct DetectStep: View {
                 .font(Tokens.Typography.Onboarding.small)
                 .foregroundStyle(Tokens.Color.textMuted(scheme))
         }
-        .padding(.vertical, Tokens.Spacing.s3)        // 12pt
-        .padding(.horizontal, Tokens.Spacing.s4)      // 16pt — mockup padding 12×16
+        .padding(.vertical, Tokens.Spacing.s4)        // 16pt — bumped from 12pt for thicker rows
+        .padding(.horizontal, Tokens.Spacing.s5 - 4)  // 20pt — slightly more breathing room than 16pt
         .background(Tokens.Color.surface(scheme))
         .overlay(
             RoundedRectangle(cornerRadius: Tokens.Radius.sm)
@@ -243,39 +249,49 @@ private let codexFreshMacItems: [DetectionItem] = [
           status: .notInstalled),
 ]
 
+/// Stepper state when DetectStep is the active screen — "Checking tools" active,
+/// rest upcoming. Reused across all DetectStep previews.
+private let detectStepperItems: [OnboardingStepperItem] = [
+    .init(label: "Checking tools",   state: .active),
+    .init(label: "Installing tools", state: .upcoming),
+    .init(label: "Signing in",       state: .upcoming),
+    .init(label: "Connection check", state: .upcoming),
+]
+
 #Preview("Detect — Dev's Mac (light)") {
-    DetectStep(items: codexDevMacItems,
-               subtitle: "Looking for the tools needed to connect Codex.")
-        .padding(.horizontal, Tokens.Spacing.s5)
-        .padding(.vertical, Tokens.Spacing.s4)
-        .frame(width: 680, height: 580)
-        .background(Tokens.DynamicColor.bg)
-        .preferredColorScheme(.light)
+    WindowChromePreview(title: "Connect OpenAI", stepperItems: detectStepperItems) {
+        DetectStep(items: codexDevMacItems,
+                   subtitle: "Looking for the tools needed to connect Codex.",
+                   onBack: {})
+    }
+    .frame(width: 680, height: 580)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Detect — Dev's Mac (dark)") {
-    DetectStep(items: codexDevMacItems,
-               subtitle: "Looking for the tools needed to connect Codex.")
-        .padding(.horizontal, Tokens.Spacing.s5)
-        .padding(.vertical, Tokens.Spacing.s4)
-        .frame(width: 680, height: 580)
-        .background(Tokens.DynamicColor.bg)
-        .preferredColorScheme(.dark)
+    WindowChromePreview(title: "Connect OpenAI", stepperItems: detectStepperItems) {
+        DetectStep(items: codexDevMacItems,
+                   subtitle: "Looking for the tools needed to connect Codex.",
+                   onBack: {})
+    }
+    .frame(width: 680, height: 580)
+    .preferredColorScheme(.dark)
 }
 
 #Preview("Detect — Fresh Mac (light)") {
-    DetectStep(items: codexFreshMacItems,
-               subtitle: "Looking for the tools needed to connect Codex.")
-        .padding(.horizontal, Tokens.Spacing.s5)
-        .padding(.vertical, Tokens.Spacing.s4)
-        .frame(width: 680, height: 580)
-        .background(Tokens.DynamicColor.bg)
-        .preferredColorScheme(.light)
+    WindowChromePreview(title: "Connect OpenAI", stepperItems: detectStepperItems) {
+        DetectStep(items: codexFreshMacItems,
+                   subtitle: "Looking for the tools needed to connect Codex.",
+                   onBack: {})
+    }
+    .frame(width: 680, height: 580)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Detect — Spinner fallback (light)") {
-    DetectStep(subtitle: "Checking for Cursor.app…")
-        .frame(width: 680, height: 580)
-        .background(Tokens.DynamicColor.bg)
-        .preferredColorScheme(.light)
+    WindowChromePreview(title: "Connect Cursor", stepperItems: detectStepperItems) {
+        DetectStep(subtitle: "Checking for Cursor.app…", onBack: {})
+    }
+    .frame(width: 680, height: 580)
+    .preferredColorScheme(.light)
 }

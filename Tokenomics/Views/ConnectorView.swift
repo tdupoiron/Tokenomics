@@ -45,9 +45,13 @@ struct ConnectorView: View {
     // MARK: - Header
 
     /// Centered provider name with optional Back button (left) + invisible balance (right).
+    /// The back button is hidden on screens that own their own footer back link
+    /// (currently DetectStep) — avoids duplicate affordances.
+    @ViewBuilder
     private var header: some View {
+        let backInHeader = onBack != nil && !stepHasOwnBack
         HStack {
-            if let onBack {
+            if backInHeader, let onBack {
                 Button(action: onBack) {
                     HStack(spacing: Tokens.Spacing.s1) {
                         Image(systemName: "chevron.left")
@@ -71,7 +75,7 @@ struct ConnectorView: View {
             Spacer()
 
             // Invisible balance for centering when there's a back button.
-            if onBack != nil {
+            if backInHeader {
                 HStack(spacing: Tokens.Spacing.s1) {
                     Image(systemName: "chevron.left")
                     Text("Back")
@@ -79,6 +83,15 @@ struct ConnectorView: View {
                 .font(Tokens.Typography.Onboarding.small.weight(.medium))
                 .hidden()
             }
+        }
+    }
+
+    /// True when the current step view renders its own footer back link
+    /// (via `WindowFooter`). The header back is hidden in that case.
+    private var stepHasOwnBack: Bool {
+        switch viewModel.step {
+        case .detecting: return true
+        default:         return false
         }
     }
 
@@ -93,7 +106,8 @@ struct ConnectorView: View {
             errorState(error: error)
         case .detecting:
             DetectStep(items: detectionItems(for: viewModel.providerId),
-                       subtitle: detectSubtitle(for: viewModel.providerId))
+                       subtitle: detectSubtitle(for: viewModel.providerId),
+                       onBack: onBack)
         case .confirmingInstall(let title, let body, let commandPreview, let footnote, let skipLabel):
             ConfirmInstallStep(
                 title: title,
