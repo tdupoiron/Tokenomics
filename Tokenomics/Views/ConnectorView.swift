@@ -117,10 +117,12 @@ struct ConnectorView: View {
                 onSkip: { viewModel.tappedSkipInstall() },
                 onBack: onBack
             )
-        case .previewExternalSteps(let headline, let body, let items, let primaryLabel, let headsUp):
+        case .previewExternalSteps(let headline, let body, let groupLabel, let startingNumber, let items, let primaryLabel, let headsUp):
             PreviewExternalStepsView(
                 headline: headline,
                 introText: body,
+                groupLabel: groupLabel,
+                startingNumber: startingNumber,
                 items: items,
                 primaryLabel: primaryLabel,
                 headsUp: headsUp,

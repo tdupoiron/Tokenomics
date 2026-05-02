@@ -81,12 +81,20 @@ enum ConnectorStep: Sendable, Equatable {
     /// Preview screen: explains a multi-step thing the user is about to do
     /// somewhere outside Tokenomics (e.g. Claude Code's sign-in wizard).
     /// Used for Windows 3 and 4 of the Anthropic flow.
+    /// `groupLabel` is the uppercase header inside the surface card
+    /// (e.g. "In Claude Code, you'll:"). `startingNumber` lets Window 4
+    /// continue numbering at 5 from Window 3's 1–4.
+    /// `items` accepts Markdown — `**bold**` and `*italic*` render inline,
+    /// so connectors can bold individual phrases without splitting.
     /// `primaryLabel` controls the button text — "Continue" for Window 3,
     /// "Open Terminal" for Window 4.
-    /// `headsUp` is an optional advisory callout shown below the step list (Window 4 only).
+    /// `headsUp` is an optional advisory paragraph rendered INSIDE the surface
+    /// card, below the step list (Window 4 only).
     case previewExternalSteps(
         headline: String,
         body: String,
+        groupLabel: String? = nil,
+        startingNumber: Int = 1,
         items: [String],
         primaryLabel: String,
         headsUp: String? = nil

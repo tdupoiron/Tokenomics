@@ -86,12 +86,14 @@ actor ClaudeConnector: ProviderConnector {
         case .previewingSignIn:
             return .previewExternalSteps(
                 headline: "Finish installing Claude Code",
-                body: "We've installed Claude Code. You'll need to finish setup by walking through Anthropic's wizard — we're here to guide you. Here's what's going to happen:",
+                body: "We've started the install for Claude Code. You'll need to finish it by walking through the steps Anthropic has laid out — we're here to guide you. Here's what's going to happen:",
+                groupLabel: "In Claude Code, you'll:",
+                startingNumber: 1,
                 items: [
-                    "Pick login method — choose Claude account with subscription if you're on Pro or Max",
-                    "Sign in via browser, paste the email code Anthropic sends",
-                    "Authorize Claude Code to connect to your account",
-                    "Accept Anthropic's security notes"
+                    "**Pick login method** — choose **Claude account with subscription** if you're on Pro / Max",
+                    "**Sign in via browser**, paste the email code Anthropic sends",
+                    "**Authorize** Claude Code to connect to your account",
+                    "**Accept** Anthropic's security notes",
                 ],
                 primaryLabel: "Continue"
             )
@@ -100,9 +102,11 @@ actor ClaudeConnector: ProviderConnector {
             return .previewExternalSteps(
                 headline: "Setup",
                 body: "After you sign in, Claude Code asks for two more things — a folder and macOS permissions. Finish those and you're done.",
+                groupLabel: "In Claude Code, you'll:",
+                startingNumber: 5,
                 items: [
-                    "Pick a folder Claude can access — create a Projects folder in your Home folder if you don't have one",
-                    "Grant macOS permissions as Claude Code asks for them"
+                    "**Pick a folder** Claude can access — create a **Projects** folder in your *Home folder* if you don't have one",
+                    "**Grant macOS permissions** as Claude Code asks for them",
                 ],
                 primaryLabel: "Open Terminal",
                 headsUp: "Heads up: Claude Code asks macOS for access to a bunch of folders during setup — Music, Photos, Downloads, Documents. Safe to decline anything outside your Projects folder. Claude works fine without them."
