@@ -129,15 +129,19 @@ struct DetectStep: View {
             VStack(alignment: .leading, spacing: 2) {
                 nameWithSuffix(item)
                 Text(item.sublabel)
-                    .font(Tokens.Typography.Onboarding.small) // DM Sans 13pt — proportional, not mono
+                    // Mockup .check-row .sublabel: 12pt text-muted (line 476).
+                    // Use a literal 12pt DM Sans here — Tokens.Typography.Onboarding.small
+                    // is 13pt which reads slightly large in this row context.
+                    .font(.custom("DM Sans", size: 12))
                     .foregroundStyle(Tokens.Color.textMuted(scheme))
             }
 
             Spacer(minLength: 0)
 
             // Right meta — "Installed" / "Not installed" / "Checking…"
+            // Mockup .check-row .right: 12pt text-muted (line 477)
             Text(rightMetaText(for: item.status))
-                .font(Tokens.Typography.Onboarding.small)
+                .font(.custom("DM Sans", size: 12))
                 .foregroundStyle(Tokens.Color.textMuted(scheme))
         }
         .padding(.vertical, Tokens.Spacing.s4)        // 16pt — bumped from 12pt for thicker rows
@@ -158,9 +162,12 @@ struct DetectStep: View {
             .foregroundColor(Tokens.Color.text(scheme))
 
         if let suffix = item.nameSuffix {
+            // Suffix uses textMuted (0.64), not textSubtle (0.44). Mockup HTML
+            // inline-styles it text-subtle but the actual rendered target reads
+            // closer to textMuted — go with the visual reference.
             return nameText + Text(" \(suffix)")
                 .font(Tokens.Typography.Onboarding.body)
-                .foregroundColor(Tokens.Color.textSubtle(scheme))
+                .foregroundColor(Tokens.Color.textMuted(scheme))
         } else {
             return nameText
         }
