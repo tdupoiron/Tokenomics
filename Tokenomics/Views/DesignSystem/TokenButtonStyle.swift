@@ -108,16 +108,16 @@ private struct SecondaryButtonBody: View {
             .animation(.easeOut(duration: Tokens.Motion.fast), value: configuration.isPressed)
     }
 
-    /// Text stays at full `text` color whether enabled or disabled — the
-    /// medium font weight (.tokenButtonSize.font is already 500) plus the
-    /// lighter disabled border are enough to signal disabled state without
-    /// washing out the label.
+    /// Disabled secondary buttons drop the text alpha to 0.80 — sits between
+    /// full text (1.0) and textMuted (0.64). Heavier than a typical "muted"
+    /// state so the label stays clearly legible, but visibly stepped back so
+    /// the button reads as inactive.
     private var textColor: Color {
-        Tokens.Color.text(scheme)
+        isEnabled ? Tokens.Color.text(scheme) : Tokens.Color.text(scheme).opacity(0.80)
     }
 
     /// Disabled border drops from border-strong (0.22) to border (0.12) —
-    /// the only visual change between enabled and disabled states.
+    /// matches the lighter outline in the mockup's disabled-state buttons.
     private var borderColor: Color {
         isEnabled ? Tokens.Color.borderStrong(scheme) : Tokens.Color.border(scheme)
     }
