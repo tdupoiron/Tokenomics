@@ -121,7 +121,7 @@ actor ClaudeConnector: ProviderConnector {
             }
             return .awaitingExternalAuth(
                 headline: "Confirm login",
-                body: "We're waiting for your successful login. You'll know you're done when you see Claude's chat prompt — close Terminal then and come back here."
+                body: "We're waiting for your successful login. **You'll know you're done when you see Claude's chat prompt** — close Terminal then and come back here."
             )
 
         case .none:

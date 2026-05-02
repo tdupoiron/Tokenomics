@@ -88,8 +88,11 @@ struct ConnectorView: View {
     /// (via `WindowFooter`). The header back is hidden in that case.
     private var stepHasOwnBack: Bool {
         switch viewModel.step {
-        case .detecting, .confirmingInstall, .openProviderSite: return true
-        default:                                                return false
+        case .detecting, .confirmingInstall, .openProviderSite,
+             .previewExternalSteps, .awaitingExternalAuth, .pasteAPIKey:
+            return true
+        default:
+            return false
         }
     }
 
