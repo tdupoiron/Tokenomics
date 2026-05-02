@@ -108,7 +108,7 @@ struct WelcomeView: View {
     }
 
     private var disclosureString: AttributedString {
-        var base = AttributedString("Tokenomics reads usage data locally. Your tokens never leave your Mac.  ")
+        var base = AttributedString("Tokenomics reads usage data locally.\nYour tokens never leave your Mac.  ")
         base.foregroundColor = NSColor(Tokens.Color.textSubtle(scheme))
 
         var link = AttributedString("Learn more →")

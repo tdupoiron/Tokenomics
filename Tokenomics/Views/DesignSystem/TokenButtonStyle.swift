@@ -11,10 +11,10 @@ import SwiftUI
 
 // MARK: - Button size
 //
-// Mockup CSS (guided-onboarding-mockup.html lines 351–371):
-//   .btn       padding: 10px 22px; font-size: 14px;   ← default
-//   .btn-sm    padding:  6px 14px; font-size: 12.5px; ← compact (back, helper)
-//   .btn-lg    padding: 14px 28px; font-size: 16px;   ← Welcome / hero CTA
+// Three size variants — design-system.md "Sizes" subsection of section 06:
+//   .regular   padding: 10 × 22; font-size: 14pt    ← default `.btn`
+//   .lg        padding: 14 × 36; font-size: 16pt    ← Welcome / hero CTA
+//   .sm        padding:  6 × 14; font-size: 12.5pt  ← compact (back, helper)
 //
 // These don't all map to Tokens.Spacing.s* (which is the 8pt grid). Buttons
 // use a tighter pill-friendly scale, encoded as literals here.
@@ -27,7 +27,7 @@ enum TokenButtonSize {
     var horizontalPadding: CGFloat {
         switch self {
         case .regular: return 22
-        case .lg:      return 28
+        case .lg:      return 36
         case .sm:      return 14
         }
     }
