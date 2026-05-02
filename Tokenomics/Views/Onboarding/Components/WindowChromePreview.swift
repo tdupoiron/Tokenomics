@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Preview-only wrapper that renders a step view inside the same chrome the
-/// production `ConnectorView` provides — title bar, stepper, dividers, body
-/// padding. Used by step view `#Preview` blocks so the canvas matches what
-/// the user actually sees inside the onboarding window.
+/// production `ConnectorView` provides — title bar, stepper, body padding.
+/// Used by step view `#Preview` blocks so the canvas matches what the user
+/// actually sees inside the onboarding window.
 ///
 /// Not intended for production use. Step views render INSIDE this wrapper
 /// at preview time only; in production they're injected into ConnectorView's
@@ -29,16 +29,10 @@ struct WindowChromePreview<Content: View>: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Tokens.Spacing.s3)
 
-            // Divider — sits BETWEEN titlebar and stepper (mockup pattern,
-            // not between stepper and content).
-            Rectangle()
-                .fill(Tokens.Color.border(scheme))
-                .frame(height: 1)
-
             // Stepper
             OnboardingStepper(items: stepperItems)
                 .padding(.horizontal, Tokens.Spacing.s4)
-                .padding(.top, Tokens.Spacing.s4)
+                .padding(.top, Tokens.Spacing.s3)
                 .padding(.bottom, Tokens.Spacing.s2)
 
             // Content body — mockup .winbody: padding 32px 40px 28px

@@ -16,17 +16,11 @@ struct ConnectorView: View {
                 .padding(.top, Tokens.Spacing.s3)
                 .padding(.bottom, Tokens.Spacing.s2)
 
-            // Divider sits BETWEEN titlebar and stepper (mockup pattern,
-            // not between stepper and content).
-            Rectangle()
-                .fill(Tokens.Color.border(scheme))
-                .frame(height: 1)
-
             // 4-segment step indicator — hidden on states that don't warrant it.
             if !viewModel.stepperItems.isEmpty {
                 OnboardingStepper(items: viewModel.stepperItems)
                     .padding(.horizontal, Tokens.Spacing.s4)
-                    .padding(.top, Tokens.Spacing.s4)
+                    .padding(.top, Tokens.Spacing.s3)
                     .padding(.bottom, Tokens.Spacing.s2)
                     .transition(.opacity)
                     .animation(.easeInOut(duration: Tokens.Motion.standard), value: viewModel.stepperItems)
