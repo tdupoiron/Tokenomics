@@ -238,6 +238,23 @@ private let installStepperItems: [OnboardingStepperItem] = [
     .preferredColorScheme(.light)
 }
 
+#Preview("Install Node.js — dark") {
+    WindowChromePreview(title: "Connect OpenAI", stepperItems: installStepperItems) {
+        ConfirmInstallStep(
+            title: "Install Node.js",
+            description: "Now we'll install Node.js using Homebrew. About 30 seconds, no extra permissions needed.",
+            commandPreview: "brew install node",
+            footnote: "Tokenomics installs Node.js into ~/.tokenomics-cli so it stays separate from any Node you might install later.",
+            skipLabel: "Already have Node.js? Skip this step",
+            onContinue: {},
+            onSkip: {},
+            onBack: {}
+        )
+    }
+    .frame(width: 720, height: 560)
+    .preferredColorScheme(.dark)
+}
+
 #Preview("Install Codex CLI — light") {
     WindowChromePreview(title: "Connect OpenAI", stepperItems: installStepperItems) {
         ConfirmInstallStep(
@@ -253,4 +270,21 @@ private let installStepperItems: [OnboardingStepperItem] = [
     }
     .frame(width: 720, height: 560)
     .preferredColorScheme(.light)
+}
+
+#Preview("Install Codex CLI — dark") {
+    WindowChromePreview(title: "Connect OpenAI", stepperItems: installStepperItems) {
+        ConfirmInstallStep(
+            title: "Install Codex CLI",
+            description: "Now we'll install OpenAI's Codex CLI via npm. About 30 seconds, no extra permissions needed.",
+            commandPreview: "npm install -g @openai/codex",
+            footnote: "This is OpenAI's official Codex CLI package on npm. Tokenomics installs it to a per-user prefix so it doesn't need admin permission.",
+            skipLabel: "Already have Codex CLI? Skip this step",
+            onContinue: {},
+            onSkip: {},
+            onBack: {}
+        )
+    }
+    .frame(width: 720, height: 560)
+    .preferredColorScheme(.dark)
 }
