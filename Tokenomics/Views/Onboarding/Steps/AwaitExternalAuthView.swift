@@ -197,7 +197,7 @@ private extension Color {
         onCheckNow: {},
         onBack: {}
     )
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -209,7 +209,7 @@ private extension Color {
         onCheckNow: {},
         onBack: {}
     )
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.dark)
 }

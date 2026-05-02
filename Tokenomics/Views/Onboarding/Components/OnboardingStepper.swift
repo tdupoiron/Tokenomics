@@ -202,7 +202,7 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
-    .frame(width: 680, height: 80)
+    .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -215,7 +215,7 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
-    .frame(width: 680, height: 80)
+    .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.dark)
 }
@@ -228,7 +228,7 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
-    .frame(width: 680, height: 80)
+    .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -241,7 +241,7 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Connection check", state: .active),
     ])
     .padding(Tokens.Spacing.s5)
-    .frame(width: 680, height: 80)
+    .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -254,7 +254,7 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
-    .frame(width: 680, height: 80)
+    .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -267,7 +267,7 @@ struct OnboardingStepper: View {
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
-    .frame(width: 680, height: 80)
+    .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.dark)
 }

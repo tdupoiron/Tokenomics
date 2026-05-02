@@ -47,7 +47,7 @@ struct TokenomicsApp: App {
             OnboardingWindowRoot(viewModel: viewModel)
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 680, height: 580)
+        .defaultSize(width: 720, height: 560)
         .windowStyle(.titleBar)
 
         if #available(macOS 15.0, *) {
@@ -68,7 +68,7 @@ struct OnboardingWindowRoot: View {
 
     var body: some View {
         ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
-            .frame(width: 680, height: 580)
+            .frame(width: 720, height: 560)
             .background(Tokens.DynamicColor.bg.ignoresSafeArea())
             .onAppear {
                 NSApplication.shared.setActivationPolicy(.regular)

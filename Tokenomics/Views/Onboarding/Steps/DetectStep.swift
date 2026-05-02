@@ -272,7 +272,7 @@ private let detectStepperItems: [OnboardingStepperItem] = [
                    subtitle: "Looking for the tools needed to connect Codex.",
                    onBack: {})
     }
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .preferredColorScheme(.light)
 }
 
@@ -282,7 +282,7 @@ private let detectStepperItems: [OnboardingStepperItem] = [
                    subtitle: "Looking for the tools needed to connect Codex.",
                    onBack: {})
     }
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .preferredColorScheme(.dark)
 }
 
@@ -292,7 +292,7 @@ private let detectStepperItems: [OnboardingStepperItem] = [
                    subtitle: "Looking for the tools needed to connect Codex.",
                    onBack: {})
     }
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .preferredColorScheme(.light)
 }
 
@@ -300,6 +300,6 @@ private let detectStepperItems: [OnboardingStepperItem] = [
     WindowChromePreview(title: "Connect Cursor", stepperItems: detectStepperItems) {
         DetectStep(subtitle: "Checking for Cursor.app…", onBack: {})
     }
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .preferredColorScheme(.light)
 }

@@ -78,7 +78,7 @@ struct BackLink: View {
     }
     .padding(.horizontal, Tokens.Spacing.s5)
     .padding(.bottom, Tokens.Spacing.s5)
-    .frame(width: 680, height: 200)
+    .frame(width: 720, height: 200)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -95,7 +95,7 @@ struct BackLink: View {
     }
     .padding(.horizontal, Tokens.Spacing.s5)
     .padding(.bottom, Tokens.Spacing.s5)
-    .frame(width: 680, height: 200)
+    .frame(width: 720, height: 200)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.dark)
 }

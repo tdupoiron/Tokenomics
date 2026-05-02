@@ -179,14 +179,14 @@ private struct HeroRing: View {
 
 #Preview("Welcome — light") {
     WelcomeView(onGetStarted: {}, onSkip: {})
-        .frame(width: 680, height: 580)
+        .frame(width: 720, height: 560)
         .background(Tokens.DynamicColor.bg)
         .preferredColorScheme(.light)
 }
 
 #Preview("Welcome — dark") {
     WelcomeView(onGetStarted: {}, onSkip: {})
-        .frame(width: 680, height: 580)
+        .frame(width: 720, height: 560)
         .background(Tokens.DynamicColor.bg)
         .preferredColorScheme(.dark)
 }

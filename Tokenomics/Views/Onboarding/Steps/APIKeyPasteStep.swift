@@ -178,7 +178,7 @@ struct APIKeyPasteStep: View {
         onSubmit: { _ in },
         onBack: {}
     )
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }
@@ -190,7 +190,7 @@ struct APIKeyPasteStep: View {
         onSubmit: { _ in },
         onBack: {}
     )
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.dark)
 }
@@ -202,7 +202,7 @@ struct APIKeyPasteStep: View {
         onSubmit: { _ in },
         onBack: {}
     )
-    .frame(width: 680, height: 580)
+    .frame(width: 720, height: 560)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
 }

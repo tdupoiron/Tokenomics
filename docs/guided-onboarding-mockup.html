@@ -189,12 +189,12 @@
   @media (max-width: 940px) { .pair { grid-template-columns: 1fr; } }
 
   /* ============== WINDOW CHROME ============== */
-  /* All onboarding-flow windows are exactly 680×518 (titlebar 38 + winbody 480).
+  /* All onboarding-flow windows are exactly 720×522 (titlebar 38 + winbody 484).
      Fixed size keeps the window from jumping between Welcome / Chooser /
-     step screens / Done. Content that exceeds 480 scrolls inside the
-     winbody — the chooser is the only frame designed to do this. */
+     step screens / Done. Content that exceeds the winbody scrolls inside it —
+     the chooser is the only frame designed to do this. */
   .window {
-    width: 680px;
+    width: 720px;
     max-width: 100%;
     background: var(--bg);
     border-radius: 12px;
@@ -1098,7 +1098,7 @@
       <p class="page-subtitle">
         Mockup for the new window-based onboarding. Each frame below shows one
         screen of the flow. Read top-to-bottom as a storyboard. Window sized
-        680 × 580 at default macOS text size; in production it grows with
+        720 × 560 at default macOS text size; in production it grows with
         Dynamic Type and Display zoom (use <code style="font-family: var(--font-mono); background: var(--page-bg-2); padding: 1px 5px; border-radius: 4px; font-size: 12px;">.font(.title)</code>, <code style="font-family: var(--font-mono); background: var(--page-bg-2); padding: 1px 5px; border-radius: 4px; font-size: 12px;">idealHeight</code> in SwiftUI, not hardcoded sizes).
       </p>
     </div>

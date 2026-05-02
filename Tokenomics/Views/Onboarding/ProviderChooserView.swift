@@ -294,14 +294,14 @@ private func chooserPreview() -> some View {
 
 #Preview("Provider chooser — light") {
     chooserPreview()
-        .frame(width: 680, height: 580)
+        .frame(width: 720, height: 560)
         .background(Tokens.DynamicColor.bg)
         .preferredColorScheme(.light)
 }
 
 #Preview("Provider chooser — dark") {
     chooserPreview()
-        .frame(width: 680, height: 580)
+        .frame(width: 720, height: 560)
         .background(Tokens.DynamicColor.bg)
         .preferredColorScheme(.dark)
 }
