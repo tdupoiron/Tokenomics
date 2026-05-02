@@ -40,8 +40,11 @@ struct WelcomeView: View {
                     .padding(.bottom, Tokens.Spacing.s6)    // 32pt — mockup margin-bottom: 32px
 
                 // Primary CTA — "Get started"
+                // Mockup line 1142: <button class="btn btn-primary btn-lg">.
+                // Welcome is the only screen that uses the .btn-lg variant
+                // (14×28 pad, 16pt font) — every other primary button is .btn.
                 Button("Get Started", action: onGetStarted)
-                    .buttonStyle(.tokenPrimary)
+                    .buttonStyle(.tokenPrimaryLg)
 
                 // Privacy disclosure — DM Sans 13pt subtle, "Learn more" in accent
                 // mockup: margin-top: 28px

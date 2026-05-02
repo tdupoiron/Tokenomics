@@ -9,16 +9,57 @@ import SwiftUI
 // Use these via `.buttonStyle(.tokenPrimary)` etc. Anti-pattern: never use
 // SwiftUI's default Button styling — that pulls Apple gray rounded chrome.
 
+// MARK: - Button size
+//
+// Mockup CSS (guided-onboarding-mockup.html lines 351–371):
+//   .btn       padding: 10px 22px; font-size: 14px;   ← default
+//   .btn-sm    padding:  6px 14px; font-size: 12.5px; ← compact (back, helper)
+//   .btn-lg    padding: 14px 28px; font-size: 16px;   ← Welcome / hero CTA
+//
+// These don't all map to Tokens.Spacing.s* (which is the 8pt grid). Buttons
+// use a tighter pill-friendly scale, encoded as literals here.
+
+enum TokenButtonSize {
+    case regular
+    case lg
+    case sm
+
+    var horizontalPadding: CGFloat {
+        switch self {
+        case .regular: return 22
+        case .lg:      return 28
+        case .sm:      return 14
+        }
+    }
+
+    var verticalPadding: CGFloat {
+        switch self {
+        case .regular: return 10
+        case .lg:      return 14
+        case .sm:      return 6
+        }
+    }
+
+    var font: Font {
+        switch self {
+        case .regular: return Font.custom("DM Sans", size: 14).weight(.medium)
+        case .lg:      return Font.custom("DM Sans", size: 16).weight(.medium)
+        case .sm:      return Font.custom("DM Sans", size: 12.5).weight(.medium)
+        }
+    }
+}
+
 /// Primary — pill, accent-ink fill (light) / brand-200 (dark), white text (light) / ink-900 text (dark).
 /// `.btn-primary` in the mockup. Used for Continue, Install, Save & connect, etc.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var scheme
+    var size: TokenButtonSize = .regular
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Tokens.Typography.Onboarding.body.weight(.medium))
-            .padding(.horizontal, Tokens.Spacing.s5)
-            .padding(.vertical, Tokens.Spacing.s3)
+            .font(size.font)
+            .padding(.horizontal, size.horizontalPadding)
+            .padding(.vertical, size.verticalPadding)
             .foregroundStyle(scheme == .dark ? Tokens.Color.ink900 : Color.white)
             .background(Tokens.Color.accentInk(scheme))
             .clipShape(Capsule())
@@ -31,12 +72,13 @@ struct PrimaryButtonStyle: ButtonStyle {
 /// `.btn-secondary` in the mockup. Used for "I'm all set", "Try again", etc.
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var scheme
+    var size: TokenButtonSize = .regular
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Tokens.Typography.Onboarding.body.weight(.medium))
-            .padding(.horizontal, Tokens.Spacing.s5)
-            .padding(.vertical, Tokens.Spacing.s3)
+            .font(size.font)
+            .padding(.horizontal, size.horizontalPadding)
+            .padding(.vertical, size.verticalPadding)
             .foregroundStyle(Tokens.Color.text(scheme))
             .background(
                 Capsule().fill(configuration.isPressed
@@ -116,10 +158,13 @@ struct InFieldButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PrimaryButtonStyle {
     static var tokenPrimary: PrimaryButtonStyle { PrimaryButtonStyle() }
+    /// Larger variant — `.btn-primary.btn-lg` in the mockup. Welcome / hero CTAs.
+    static var tokenPrimaryLg: PrimaryButtonStyle { PrimaryButtonStyle(size: .lg) }
 }
 
 extension ButtonStyle where Self == SecondaryButtonStyle {
     static var tokenSecondary: SecondaryButtonStyle { SecondaryButtonStyle() }
+    static var tokenSecondaryLg: SecondaryButtonStyle { SecondaryButtonStyle(size: .lg) }
 }
 
 extension ButtonStyle where Self == GhostButtonStyle {
