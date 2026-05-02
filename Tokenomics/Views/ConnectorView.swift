@@ -20,7 +20,7 @@ struct ConnectorView: View {
             if !viewModel.stepperItems.isEmpty {
                 OnboardingStepper(items: viewModel.stepperItems)
                     .padding(.horizontal, Tokens.Spacing.s4)
-                    .padding(.top, Tokens.Spacing.s3)
+                    .padding(.top, Tokens.Spacing.s2)
                     .padding(.bottom, Tokens.Spacing.s2)
                     .transition(.opacity)
                     .animation(.easeInOut(duration: Tokens.Motion.standard), value: viewModel.stepperItems)

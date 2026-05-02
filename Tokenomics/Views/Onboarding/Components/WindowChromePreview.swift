@@ -32,7 +32,7 @@ struct WindowChromePreview<Content: View>: View {
             // Stepper
             OnboardingStepper(items: stepperItems)
                 .padding(.horizontal, Tokens.Spacing.s4)
-                .padding(.top, Tokens.Spacing.s3)
+                .padding(.top, Tokens.Spacing.s2)
                 .padding(.bottom, Tokens.Spacing.s2)
 
             // Content body — mockup .winbody: padding 32px 40px 28px
