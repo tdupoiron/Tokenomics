@@ -15,14 +15,20 @@ SKIP_INTEGRATION="${SKIP_INTEGRATION:-0}"
 echo "==> Tokenomics pre-PR check"
 echo ""
 
+# 0. Onboarding light/dark preview parity — catches copy drift between paired
+#    #Preview blocks (e.g. dark variant with a truncated description).
+echo "[1/5] Checking onboarding light/dark preview copy parity..."
+python3 "$SCRIPT_DIR/check-preview-parity.py"
+echo ""
+
 # 1. Regenerate project from project.yml to catch any drift
-echo "[1/4] Regenerating Xcode project from project.yml..."
+echo "[2/5] Regenerating Xcode project from project.yml..."
 xcodegen generate --spec "$PROJECT_ROOT/project.yml" --project "$PROJECT_ROOT"
 echo "      OK"
 echo ""
 
 # 2. Build (catches compilation errors before running tests)
-echo "[2/4] Building Tokenomics (Debug)..."
+echo "[3/5] Building Tokenomics (Debug)..."
 xcodebuild build \
   -scheme Tokenomics \
   -destination 'platform=macOS' \
@@ -33,7 +39,7 @@ xcodebuild build \
 echo ""
 
 # 3. Run the unit test suite
-echo "[3/4] Running TokenomicsTests (unit tests)..."
+echo "[4/5] Running TokenomicsTests (unit tests)..."
 set +o pipefail
 xcodebuild test \
   -scheme Tokenomics \
@@ -51,9 +57,9 @@ echo ""
 
 # 4. Run integration tests (skippable via SKIP_INTEGRATION=1)
 if [ "$SKIP_INTEGRATION" = "1" ]; then
-  echo "[4/4] Integration tests SKIPPED (SKIP_INTEGRATION=1)"
+  echo "[5/5] Integration tests SKIPPED (SKIP_INTEGRATION=1)"
 else
-  echo "[4/4] Running TokenomicsIntegrationTests..."
+  echo "[5/5] Running TokenomicsIntegrationTests..."
   set +o pipefail
   xcodebuild test \
     -scheme TokenomicsIntegration \
