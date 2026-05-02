@@ -250,6 +250,7 @@ struct ProviderChooserView: View {
     )
     .frame(width: 680, height: 580)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Provider chooser — dark") {

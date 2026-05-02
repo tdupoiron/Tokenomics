@@ -188,6 +188,7 @@ struct OnboardingStepper: View {
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Stepper — Installing step active — dark") {
@@ -213,6 +214,7 @@ struct OnboardingStepper: View {
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Stepper — All done — light") {
@@ -225,6 +227,7 @@ struct OnboardingStepper: View {
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Stepper — Install failed — light") {
@@ -237,6 +240,7 @@ struct OnboardingStepper: View {
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Stepper — Install failed — dark") {

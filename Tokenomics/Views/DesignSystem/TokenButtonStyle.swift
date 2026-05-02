@@ -160,6 +160,7 @@ private var buttonGallery: some View {
 #Preview("Button variants — light") {
     buttonGallery
         .frame(width: 360, height: 320)
+        .preferredColorScheme(.light)
 }
 
 #Preview("Button variants — dark") {

@@ -199,6 +199,7 @@ private extension Color {
     )
     .frame(width: 680, height: 580)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Window 5 — Awaiting auth — dark") {

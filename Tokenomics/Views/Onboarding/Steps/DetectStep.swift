@@ -50,6 +50,7 @@ struct DetectStep: View {
     DetectStep(message: "Checking for Homebrew, Node.js, and the Codex CLI…")
         .frame(width: 680, height: 580)
         .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Detect Step — dark") {

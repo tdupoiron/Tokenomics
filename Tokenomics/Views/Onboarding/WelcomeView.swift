@@ -77,8 +77,15 @@ struct WelcomeView: View {
             RoundedRectangle(cornerRadius: 18)
                 .strokeBorder(Tokens.Color.border(scheme), lineWidth: 1)
 
-            // Ring SVG at 56×56 — matches mockup: .hero-ring svg { width: 56px; height: 56px }
-            WelcomeRingView(size: 56)
+            // Ring SVG at 56×56 — verbatim from mockup lines 1131–1136:
+            //   <circle r="36" stroke-opacity="0.18"/>          ← outer track
+            //   <circle r="22" stroke-opacity="0.18"/>          ← inner track
+            //   <path d="M50,14 A36,36 0 0 1 86,50"/>           ← outer accent arc (12 → 3 o'clock, 90°)
+            //   <path d="M50,28 A22,22 0 0 1 67,38"/>           ← inner accent arc (12 → ~2 o'clock, ~60°)
+            // No percentage text, no full-fill arcs — just two thin accent strokes
+            // riding subtle currentColor tracks.
+            HeroRing()
+                .frame(width: 56, height: 56)
         }
         .frame(width: 72, height: 72)
     }
@@ -109,12 +116,69 @@ struct WelcomeView: View {
     }
 }
 
+// MARK: - Hero ring
+
+/// Two simple accent arcs over subtle currentColor tracks. Verbatim port of the
+/// mockup's hero SVG (guided-onboarding-mockup.html lines 1131–1136). Drawn in
+/// a 100×100 viewBox via SwiftUI shapes — outer arc sweeps 12→3 o'clock (90°),
+/// inner arc sweeps 12→~2 o'clock (~50°).
+private struct HeroRing: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        ZStack {
+            Canvas { ctx, size in
+                let s = size.width  // square canvas
+                let scale = s / 100  // viewBox is 100×100
+                let center = CGPoint(x: 50 * scale, y: 50 * scale)
+                let strokeW = 6 * scale
+
+                // Track color = currentColor at 18% (text in light, off-white in dark).
+                let trackColor = (scheme == .dark
+                    ? GraphicsContext.Shading.color(.white.opacity(0.18))
+                    : GraphicsContext.Shading.color(Tokens.Color.text(.light).opacity(0.18)))
+
+                let accentColor = GraphicsContext.Shading.color(Tokens.Color.accent(scheme))
+
+                // Outer track (r=36, full circle)
+                let outerR: CGFloat = 36 * scale
+                let outerRect = CGRect(x: center.x - outerR, y: center.y - outerR, width: outerR * 2, height: outerR * 2)
+                ctx.stroke(Path(ellipseIn: outerRect), with: trackColor, lineWidth: strokeW)
+
+                // Inner track (r=22, full circle)
+                let innerR: CGFloat = 22 * scale
+                let innerRect = CGRect(x: center.x - innerR, y: center.y - innerR, width: innerR * 2, height: innerR * 2)
+                ctx.stroke(Path(ellipseIn: innerRect), with: trackColor, lineWidth: strokeW)
+
+                // Outer accent arc — 12 to 3 o'clock = -90° to 0° in std math, 0° to 90° clockwise from top.
+                var outerArc = Path()
+                outerArc.addArc(center: center, radius: outerR,
+                                startAngle: .degrees(-90), endAngle: .degrees(0),
+                                clockwise: false)
+                ctx.stroke(outerArc, with: accentColor,
+                           style: StrokeStyle(lineWidth: strokeW, lineCap: .round))
+
+                // Inner accent arc — 12 to ~2 o'clock = ~50° clockwise from top.
+                // Mockup endpoint (67,38): atan2(38-50, 67-50) = atan2(-12, 17) = -35.2° (std math),
+                // i.e. 54.8° clockwise from 3 o'clock. So end angle in our coord system = -35.2°.
+                var innerArc = Path()
+                innerArc.addArc(center: center, radius: innerR,
+                                startAngle: .degrees(-90), endAngle: .degrees(-35.2),
+                                clockwise: false)
+                ctx.stroke(innerArc, with: accentColor,
+                           style: StrokeStyle(lineWidth: strokeW, lineCap: .round))
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Welcome — light") {
     WelcomeView(onGetStarted: {}, onSkip: {})
         .frame(width: 680, height: 580)
         .background(Tokens.DynamicColor.bg)
+        .preferredColorScheme(.light)
 }
 
 #Preview("Welcome — dark") {

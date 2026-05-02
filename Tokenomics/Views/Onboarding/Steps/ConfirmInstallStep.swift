@@ -163,6 +163,7 @@ struct ConfirmInstallStep: View {
     )
     .frame(width: 680, height: 580)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Install Homebrew — dark") {
@@ -192,6 +193,7 @@ struct ConfirmInstallStep: View {
     )
     .frame(width: 680, height: 580)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }
 
 #Preview("Install Codex CLI — light") {
@@ -206,4 +208,5 @@ struct ConfirmInstallStep: View {
     )
     .frame(width: 680, height: 580)
     .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
 }

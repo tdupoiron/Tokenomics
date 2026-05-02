@@ -77,7 +77,12 @@ enum Tokens {
         fileprivate static let _borderDark        = SwiftUI.Color.white.opacity(0.10)
         fileprivate static let _borderStrongDark  = SwiftUI.Color.white.opacity(0.22)
         fileprivate static let _accentDark        = brand200
-        fileprivate static let _accentInkDark     = _textDark   // mirrors --text in dark
+        // accentInk in dark = brand200 (cyan), per the mockup .btn-primary CSS
+        // (guided-onboarding-mockup.html line 364:
+        //   [data-theme="dark"] .btn-primary { background: var(--brand-200); })
+        // The MD drop-in had this wired to _textDark, which contradicted its
+        // own doc comment ("Dark mode = brand-200 (cyan on navy)"). Mockup wins.
+        fileprivate static let _accentInkDark     = brand200
 
         // ─────────────────────────────────────────────────────────────────
         // PUBLIC THEME-RESOLVED ACCESSORS
@@ -309,6 +314,7 @@ private let brandConstants: [BrandSwatch] = [
 #Preview("Theme tokens — light") {
     themeTokenGrid(scheme: .light)
         .frame(width: 360, height: 520)
+        .preferredColorScheme(.light)
 }
 
 #Preview("Theme tokens — dark") {
