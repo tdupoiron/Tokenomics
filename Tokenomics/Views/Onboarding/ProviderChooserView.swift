@@ -92,9 +92,9 @@ struct ProviderChooserView: View {
 
         Button { onPick(provider) } label: {
             HStack(alignment: .center, spacing: Tokens.Spacing.s4 - 2) { // 14pt — mockup gap: 14px
-                // 32×32 provider icon
-                ProviderIcon(provider: provider, isConnected: isConnected)
-                    .frame(width: 32, height: 32)
+                // 32×32 provider icon — mockup .provider-icon (lines 414–423):
+                //   width/height 32, border-radius 8, bg surface, 1px border
+                chooserProviderIcon(for: provider)
 
                 // Name + scope
                 VStack(alignment: .leading, spacing: 2) {
@@ -129,6 +129,41 @@ struct ProviderChooserView: View {
                 .fill(Color.clear) // hover handled by .buttonStyle interaction
         )
         .disabled(!isAvailable && !isConnected)
+    }
+
+    // MARK: - Chooser provider icon (32×32 surface squircle)
+
+    /// 32×32 white squircle with 1px border containing the provider's vector icon
+    /// at ~18pt. Mockup `.provider-icon` (lines 414–423):
+    ///   width/height 32; border-radius 8 (literal — between Radius.xs and .sm);
+    ///   bg surface; 1px border; centered icon.
+    /// This is chooser-specific styling; the global `ProviderIcon` component
+    /// keeps the popover/settings tile treatment.
+    private func chooserProviderIcon(for provider: ProviderId) -> some View {
+        ZStack {
+            providerImage(for: provider)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+        }
+        .frame(width: 32, height: 32)
+        .background(Tokens.Color.surface(scheme))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8) // literal — mockup `.provider-icon { border-radius: 8px }`
+                .strokeBorder(Tokens.Color.border(scheme), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Asset lookup matching `ProviderIcon.swift`: <iconBaseName>-black in light,
+    /// -white in dark. Falls back to a sparkle SF Symbol if the asset is missing.
+    private func providerImage(for provider: ProviderId) -> Image {
+        let suffix = scheme == .dark ? "-white" : "-black"
+        let name = "\(provider.iconBaseName)\(suffix)"
+        if let nsImage = NSImage(named: name) {
+            return Image(nsImage: nsImage)
+        }
+        return Image(systemName: "sparkles")
     }
 
     @ViewBuilder
@@ -241,26 +276,32 @@ struct ProviderChooserView: View {
 
 // MARK: - Preview
 
-#Preview("Provider chooser — light") {
+// Preview wraps the chooser in the same .winbody padding (32 / 48 / 28) that
+// ConnectorContainer applies in production — without this, the preview shows
+// content edge-to-edge and misrepresents the real rendering.
+@MainActor
+private func chooserPreview() -> some View {
     ProviderChooserView(
         viewModel: UsageViewModel(),
         onPick: { _ in },
         onAllSet: {},
         onBack: {}
     )
-    .frame(width: 680, height: 580)
-    .background(Tokens.DynamicColor.bg)
-    .preferredColorScheme(.light)
+    .padding(.top, Tokens.Spacing.s6)        // 32pt
+    .padding(.horizontal, Tokens.Spacing.s7) // 48pt — matches ConnectorContainer
+    .padding(.bottom, Tokens.Spacing.s5 + 4) // 28pt
+}
+
+#Preview("Provider chooser — light") {
+    chooserPreview()
+        .frame(width: 680, height: 580)
+        .background(Tokens.DynamicColor.bg)
+        .preferredColorScheme(.light)
 }
 
 #Preview("Provider chooser — dark") {
-    ProviderChooserView(
-        viewModel: UsageViewModel(),
-        onPick: { _ in },
-        onAllSet: {},
-        onBack: {}
-    )
-    .frame(width: 680, height: 580)
-    .background(Tokens.DynamicColor.bg)
-    .preferredColorScheme(.dark)
+    chooserPreview()
+        .frame(width: 680, height: 580)
+        .background(Tokens.DynamicColor.bg)
+        .preferredColorScheme(.dark)
 }
