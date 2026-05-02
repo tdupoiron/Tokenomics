@@ -35,6 +35,9 @@ struct ProviderChooserView: View {
 
             // Scrollable chooser region — flex 1, scrolls when content overflows
             // mockup .chooser: flex: 1 1 auto, overflow-y: auto
+            // Hide scroll indicators — the cut-off bottom row telegraphs more
+            // content; the user's macOS "always show scrollbars" pref renders a
+            // thick rail that visually overweights the chooser.
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(ProviderId.ProviderCategory.allCases, id: \.self) { category in
@@ -57,6 +60,7 @@ struct ProviderChooserView: View {
                 }
                 .padding(.bottom, Tokens.Spacing.s2)
             }
+            .scrollIndicators(.hidden)
 
             // Pinned footer — divider + Back ghost + All set secondary
             // mockup .winfoot: margin-top auto, padding-top 24px, border-top 1px border
