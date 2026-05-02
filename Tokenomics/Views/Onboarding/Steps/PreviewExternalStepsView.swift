@@ -238,7 +238,7 @@ private let window4Items: [String] = [
             startingNumber: 5,
             items: window4Items,
             primaryLabel: "Open Terminal",
-            headsUp: "Heads up: Claude Code asks macOS for access to a bunch of folders during setup.",
+            headsUp: "Heads up: Claude Code asks macOS for access to a bunch of folders during setup — Music, Photos, Downloads, Documents. Safe to decline anything outside your Projects folder. Claude works fine without them.",
             onPrimary: {},
             onBack: {}
         )
