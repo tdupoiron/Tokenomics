@@ -88,8 +88,8 @@ struct ConnectorView: View {
     /// (via `WindowFooter`). The header back is hidden in that case.
     private var stepHasOwnBack: Bool {
         switch viewModel.step {
-        case .detecting: return true
-        default:         return false
+        case .detecting, .confirmingInstall, .openProviderSite: return true
+        default:                                                return false
         }
     }
 
@@ -114,7 +114,8 @@ struct ConnectorView: View {
                 footnote: footnote,
                 skipLabel: skipLabel,
                 onContinue: { viewModel.tappedConfirmInstall() },
-                onSkip: { viewModel.tappedSkipInstall() }
+                onSkip: { viewModel.tappedSkipInstall() },
+                onBack: onBack
             )
         case .previewExternalSteps(let headline, let body, let items, let primaryLabel, let headsUp):
             PreviewExternalStepsView(
@@ -143,7 +144,8 @@ struct ConnectorView: View {
                 skipLabel: "Already have a key? Skip to paste",
                 primaryLabel: ctaLabel,
                 onContinue: { viewModel.tappedConfirmInstall() },
-                onSkip: { viewModel.tappedSkipInstall() }
+                onSkip: { viewModel.tappedSkipInstall() },
+                onBack: onBack
             )
         case .pasteAPIKey(let providerName, let helpURL):
             // Pattern E step 2 — secure paste field.
