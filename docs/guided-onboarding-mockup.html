@@ -189,7 +189,7 @@
   @media (max-width: 940px) { .pair { grid-template-columns: 1fr; } }
 
   /* ============== WINDOW CHROME ============== */
-  /* All onboarding-flow windows are exactly 720×522 (titlebar 38 + winbody 484).
+  /* All onboarding-flow windows are exactly 720×560 (titlebar 38 + winbody 522).
      Fixed size keeps the window from jumping between Welcome / Chooser /
      step screens / Done. Content that exceeds the winbody scrolls inside it —
      the chooser is the only frame designed to do this. */
@@ -232,14 +232,14 @@
     pointer-events: none;
   }
 
-  /* Window content — fixed at 542px so all non-chooser frames fit
+  /* Window content — fixed at 522px so all non-chooser frames fit
      statically (no scroll). The chooser is the only frame that scrolls,
      and it scrolls inside its own .chooser child rather than the winbody.
      Production: in SwiftUI, this would be `idealHeight` so the window
      grows with macOS Dynamic Type / Display zoom. */
   .winbody {
     padding: 32px 40px 28px;
-    height: 542px;
+    height: 522px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
