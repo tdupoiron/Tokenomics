@@ -233,6 +233,19 @@ struct OnboardingStepper: View {
     .preferredColorScheme(.light)
 }
 
+#Preview("Stepper — Signing in active — dark") {
+    OnboardingStepper(items: [
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .completed),
+        OnboardingStepperItem(label: "Signing in", state: .active),
+        OnboardingStepperItem(label: "Connection check", state: .upcoming),
+    ])
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 720, height: 80)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
+}
+
 #Preview("Stepper — All done — light") {
     OnboardingStepper(items: [
         OnboardingStepperItem(label: "Checking tools", state: .completed),
@@ -244,6 +257,19 @@ struct OnboardingStepper: View {
     .frame(width: 720, height: 80)
     .background(Tokens.DynamicColor.bg)
     .preferredColorScheme(.light)
+}
+
+#Preview("Stepper — All done — dark") {
+    OnboardingStepper(items: [
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .completed),
+        OnboardingStepperItem(label: "Signing in", state: .completed),
+        OnboardingStepperItem(label: "Connection check", state: .active),
+    ])
+    .padding(Tokens.Spacing.s5)
+    .frame(width: 720, height: 80)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
 }
 
 #Preview("Stepper — Install failed — light") {

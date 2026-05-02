@@ -83,6 +83,42 @@ struct BackLink: View {
     .preferredColorScheme(.light)
 }
 
+#Preview("WindowFooter — Back + Continuing — dark") {
+    VStack {
+        Spacer()
+        WindowFooter {
+            BackLink {}
+        } trailing: {
+            Button("Continuing…") {}
+                .buttonStyle(.tokenSecondary)
+                .disabled(true)
+                .opacity(0.6)
+        }
+    }
+    .padding(.horizontal, Tokens.Spacing.s5)
+    .padding(.bottom, Tokens.Spacing.s5)
+    .frame(width: 720, height: 200)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("WindowFooter — Back + Install — light") {
+    VStack {
+        Spacer()
+        WindowFooter {
+            BackLink {}
+        } trailing: {
+            Button("Install Homebrew") {}
+                .buttonStyle(.tokenPrimary)
+        }
+    }
+    .padding(.horizontal, Tokens.Spacing.s5)
+    .padding(.bottom, Tokens.Spacing.s5)
+    .frame(width: 720, height: 200)
+    .background(Tokens.DynamicColor.bg)
+    .preferredColorScheme(.light)
+}
+
 #Preview("WindowFooter — Back + Install — dark") {
     VStack {
         Spacer()

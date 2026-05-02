@@ -63,14 +63,16 @@ def main():
                 base = DARK_SUFFIX.sub("", name).strip()
                 pairs[(swift_file.name, base)]["dark"] = body
 
-    failures = 0
-    unpaired = []
+    drift_failures = 0
+    unpaired_failures = 0
     for (file, base), pair in sorted(pairs.items()):
         if "light" not in pair or "dark" not in pair:
-            unpaired.append((file, base, "light" if "dark" in pair else "dark"))
+            unpaired_failures += 1
+            missing = "light" if "dark" in pair else "dark"
+            print(f'❌ {file} :: "{base}" — missing {missing} counterpart', file=sys.stderr)
             continue
         if pair["light"] != pair["dark"]:
-            failures += 1
+            drift_failures += 1
             print(f'❌ {file} :: "{base}" — light/dark previews diverge', file=sys.stderr)
             light_strs = set(STRING_LITERAL.findall(pair["light"]))
             dark_strs = set(STRING_LITERAL.findall(pair["dark"]))
@@ -79,15 +81,16 @@ def main():
             for s in sorted(dark_strs - light_strs):
                 print(f'   only in dark:  {s}', file=sys.stderr)
 
-    if unpaired:
-        print('\nℹ️  Previews missing a light/dark counterpart (not a failure, but worth noting):')
-        for file, base, missing in unpaired:
-            print(f'   {file} :: "{base}" — missing {missing} variant')
-
-    if failures:
-        print(f'\n{failures} preview pair(s) out of sync.', file=sys.stderr)
+    total = drift_failures + unpaired_failures
+    if total:
+        msg = []
+        if drift_failures:
+            msg.append(f'{drift_failures} pair(s) out of sync')
+        if unpaired_failures:
+            msg.append(f'{unpaired_failures} preview(s) missing a counterpart')
+        print(f'\n{" / ".join(msg)}.', file=sys.stderr)
         return 1
-    print(f'\n✓ All paired light/dark previews have identical copy.')
+    print(f'\n✓ All onboarding previews have a paired light/dark counterpart with identical copy.')
     return 0
 
 

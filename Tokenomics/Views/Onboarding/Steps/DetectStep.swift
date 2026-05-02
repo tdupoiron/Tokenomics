@@ -294,6 +294,16 @@ private let detectStepperItems: [OnboardingStepperItem] = [
     .preferredColorScheme(.light)
 }
 
+#Preview("Detect — Fresh Mac (dark)") {
+    WindowChromePreview(title: "Connect OpenAI", stepperItems: detectStepperItems) {
+        DetectStep(items: codexFreshMacItems,
+                   subtitle: "Looking for the tools needed to connect Codex.",
+                   onBack: {})
+    }
+    .frame(width: 720, height: 560)
+    .preferredColorScheme(.dark)
+}
+
 #Preview("Detect — Spinner fallback (light)") {
     WindowChromePreview(title: "Connect Cursor", stepperItems: detectStepperItems) {
         DetectStep(subtitle: "Checking for Cursor.app…", onBack: {})
