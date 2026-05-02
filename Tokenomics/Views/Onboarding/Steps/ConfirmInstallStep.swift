@@ -210,7 +210,7 @@ private let installStepperItems: [OnboardingStepperItem] = [
             title: "Install Homebrew",
             description: "Tokenomics needs Homebrew to install Codex. Homebrew is the standard Mac package manager — about 2 minutes to install.",
             commandPreview: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
-            footnote: "We'll open Terminal and install Homebrew with your permission.",
+            footnote: "We'll open Terminal and install Homebrew with your permission. You'll be asked for your password once. This is Homebrew's official installer, straight from brew.sh.",
             skipLabel: "Already have Homebrew? Skip this step",
             onContinue: {},
             onSkip: {},
