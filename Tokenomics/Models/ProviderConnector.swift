@@ -292,6 +292,6 @@ extension ProviderConnector {
     /// Default stepper labels — shared by most connectors (Pattern A, B, C).
     /// Pattern D (Cursor) and Pattern E (API keys) override this.
     nonisolated var stepperLabels: (step1: String, step2: String, step3: String, step4: String) {
-        ("Checking", "Installing", "Signing in", "Connection check")
+        ("Checking tools", "Installing tools", "Signing in", "Connection check")
     }
 }

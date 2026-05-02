@@ -53,7 +53,7 @@ actor APIKeyConnector: ProviderConnector {
     // MARK: - Stepper labels
 
     nonisolated var stepperLabels: (step1: String, step2: String, step3: String, step4: String) {
-        ("Checking", "Get API key", "Paste key", "Connection check")
+        ("Checking tools", "Get API key", "Paste key", "Connection check")
     }
 
     // MARK: - Init

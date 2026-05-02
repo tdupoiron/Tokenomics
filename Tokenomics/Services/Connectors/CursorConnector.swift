@@ -48,7 +48,7 @@ actor CursorConnector: ProviderConnector {
     // MARK: - ProviderConnector
 
     nonisolated var stepperLabels: (step1: String, step2: String, step3: String, step4: String) {
-        ("Checking", "Installing Cursor", "Signing in", "Connection check")
+        ("Checking tools", "Installing Cursor", "Signing in", "Connection check")
     }
 
     func currentStep() async -> ConnectorStep {

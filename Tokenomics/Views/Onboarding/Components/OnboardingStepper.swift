@@ -64,7 +64,9 @@ struct OnboardingStepper: View {
     // MARK: - Subviews
 
     private func stepSlot(index: Int, item: OnboardingStepperItem) -> some View {
-        VStack(spacing: 6) {
+        // 10pt gap between mark and label (mockup .step `gap: 8` bumped per
+        // visual review for a touch more breathing room).
+        VStack(spacing: 10) {
             stepMark(index: index, state: item.state)
             stepLabel(item.label, state: item.state)
         }
@@ -95,22 +97,23 @@ struct OnboardingStepper: View {
 
             switch state {
             case .completed:
+                // Inner check is dark on cyan in dark mode (cyan bg = dark text,
+                // mirrors PrimaryButtonStyle); white on navy in light mode.
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Tokens.Color.white)
+                    .foregroundStyle(scheme == .dark ? Tokens.Color.ink900 : Color.white)
             case .error:
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Tokens.Color.white)
+                // Mockup line 1866: <span class="step-mark">!</span> — literal
+                // exclamation mark, white on red, slightly heavier weight than
+                // the stepper number font.
+                Text("!")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundStyle(Color.white)
             case .active, .upcoming:
                 Text("\(index)")
                     .font(Tokens.Typography.Onboarding.stepperNumber)
                     .monospacedDigit()
-                    .foregroundStyle(
-                        state == .upcoming
-                            ? Tokens.Color.textSubtle(scheme)
-                            : Tokens.Color.white
-                    )
+                    .foregroundStyle(activeNumberColor(state: state))
             }
         }
     }
@@ -142,12 +145,24 @@ struct OnboardingStepper: View {
     // MARK: - Color helpers
 
     private func lineColor(_ state: OnboardingStepperItem.State) -> Color {
-        // mockup: .step-line.done → accent; else → border-strong (mockup line 311)
+        // mockup: .step-line.done → accent; else → border-strong (mockup line 311).
+        // Note: error state uses border-strong (NOT danger). The line PRECEDING
+        // an error step is colored by the previous (completed) step, which gives
+        // the user a clear "this is where you got to" trail; the line LEAVING the
+        // error step stays neutral so the error doesn't visually contaminate
+        // downstream segments.
         switch state {
         case .completed: return Tokens.Color.accent(scheme)
-        case .error:     return Tokens.Color.danger(scheme)
-        case .active, .upcoming: return Tokens.Color.borderStrong(scheme)
+        case .active, .upcoming, .error: return Tokens.Color.borderStrong(scheme)
         }
+    }
+
+    /// Inner number color for `.active` (filled) and `.upcoming` (bordered) states.
+    /// In dark mode, the cyan-filled active circle gets dark text (mirrors the
+    /// PrimaryButtonStyle dark-mode contract). Upcoming uses subtle text either way.
+    private func activeNumberColor(state: OnboardingStepperItem.State) -> Color {
+        if state == .upcoming { return Tokens.Color.textSubtle(scheme) }
+        return scheme == .dark ? Tokens.Color.ink900 : Color.white
     }
 
     private func markFill(_ state: OnboardingStepperItem.State) -> Color {
@@ -180,10 +195,10 @@ struct OnboardingStepper: View {
 
 #Preview("Stepper — Installing step active — light") {
     OnboardingStepper(items: [
-        OnboardingStepperItem(label: "Checking", state: .completed),
-        OnboardingStepperItem(label: "Installing", state: .active),
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .active),
         OnboardingStepperItem(label: "Signing in", state: .upcoming),
-        OnboardingStepperItem(label: "Done", state: .upcoming),
+        OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
@@ -193,10 +208,10 @@ struct OnboardingStepper: View {
 
 #Preview("Stepper — Installing step active — dark") {
     OnboardingStepper(items: [
-        OnboardingStepperItem(label: "Checking", state: .completed),
-        OnboardingStepperItem(label: "Installing", state: .active),
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .active),
         OnboardingStepperItem(label: "Signing in", state: .upcoming),
-        OnboardingStepperItem(label: "Done", state: .upcoming),
+        OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
@@ -206,10 +221,10 @@ struct OnboardingStepper: View {
 
 #Preview("Stepper — Signing in active — light") {
     OnboardingStepper(items: [
-        OnboardingStepperItem(label: "Checking", state: .completed),
-        OnboardingStepperItem(label: "Installing", state: .completed),
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .completed),
         OnboardingStepperItem(label: "Signing in", state: .active),
-        OnboardingStepperItem(label: "Done", state: .upcoming),
+        OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
     .padding(Tokens.Spacing.s5)
     .frame(width: 680, height: 80)
@@ -219,8 +234,8 @@ struct OnboardingStepper: View {
 
 #Preview("Stepper — All done — light") {
     OnboardingStepper(items: [
-        OnboardingStepperItem(label: "Checking", state: .completed),
-        OnboardingStepperItem(label: "Installing", state: .completed),
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .completed),
         OnboardingStepperItem(label: "Signing in", state: .completed),
         OnboardingStepperItem(label: "Connection check", state: .active),
     ])
@@ -232,8 +247,8 @@ struct OnboardingStepper: View {
 
 #Preview("Stepper — Install failed — light") {
     OnboardingStepper(items: [
-        OnboardingStepperItem(label: "Checking", state: .completed),
-        OnboardingStepperItem(label: "Installing", state: .error),
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .error),
         OnboardingStepperItem(label: "Signing in", state: .upcoming),
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
@@ -245,8 +260,8 @@ struct OnboardingStepper: View {
 
 #Preview("Stepper — Install failed — dark") {
     OnboardingStepper(items: [
-        OnboardingStepperItem(label: "Checking", state: .completed),
-        OnboardingStepperItem(label: "Installing", state: .error),
+        OnboardingStepperItem(label: "Checking tools", state: .completed),
+        OnboardingStepperItem(label: "Installing tools", state: .error),
         OnboardingStepperItem(label: "Signing in", state: .upcoming),
         OnboardingStepperItem(label: "Connection check", state: .upcoming),
     ])
