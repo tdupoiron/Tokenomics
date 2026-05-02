@@ -309,8 +309,3 @@ private let detectStepperItems: [OnboardingStepperItem] = [
     .frame(width: 720, height: 560)
     .preferredColorScheme(.dark)
 }
-
-#Preview {
-    DetectStep(items: codexDevMacItems, subtitle: "Looking for the tools needed to connect Codex.", onBack: {})
-}
-
