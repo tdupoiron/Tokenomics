@@ -99,15 +99,16 @@ struct OnboardingStepper: View {
             case .completed:
                 // Inner check is dark on cyan in dark mode (cyan bg = dark text,
                 // mirrors PrimaryButtonStyle); white on navy in light mode.
+                // Semibold instead of bold — bold reads stocky inside the 22pt circle.
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(scheme == .dark ? Tokens.Color.ink900 : Color.white)
             case .error:
-                // Mockup line 1866: <span class="step-mark">!</span> — literal
-                // exclamation mark, white on red, slightly heavier weight than
-                // the stepper number font.
-                Text("!")
-                    .font(.system(size: 13, weight: .heavy))
+                // Mockup line 1866 uses literal "!" but the system glyph at heavy
+                // weight reads as a thick pill. SF Symbol `exclamationmark` is a
+                // designed symbol with cleaner proportions at small sizes.
+                Image(systemName: "exclamationmark")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.white)
             case .active, .upcoming:
                 Text("\(index)")
