@@ -89,7 +89,8 @@ struct ConfirmInstallStep: View {
                     .strokeBorder(Tokens.Color.border(scheme), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.md))
-            .padding(.horizontal, Tokens.Spacing.s5)
+            // No outer page padding — ConnectorView wraps content with the
+            // mockup .winbody inset (32 top / 40 sides / 28 bottom).
 
             // Helper skip link
             // mockup: center-aligned small text + text-link
@@ -108,8 +109,6 @@ struct ConfirmInstallStep: View {
                     .buttonStyle(.tokenPrimary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, Tokens.Spacing.s5)
-            .padding(.bottom, Tokens.Spacing.s5)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

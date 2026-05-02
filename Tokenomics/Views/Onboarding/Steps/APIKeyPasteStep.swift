@@ -67,7 +67,8 @@ struct APIKeyPasteStep: View {
                     }
                 }
             }
-            .padding(.horizontal, Tokens.Spacing.s5)
+            // No outer page padding — ConnectorView wraps content with the
+            // mockup .winbody inset (32 top / 40 sides / 28 bottom).
 
             Spacer()
 
@@ -156,8 +157,7 @@ struct APIKeyPasteStep: View {
                 .fill(Tokens.Color.border(scheme))
                 .frame(height: 1)
         }
-        .padding(.horizontal, Tokens.Spacing.s5)
-        .padding(.bottom, Tokens.Spacing.s5)
+        // No outer page padding — ConnectorView's winbody inset handles it.
     }
 
     // MARK: - Helpers

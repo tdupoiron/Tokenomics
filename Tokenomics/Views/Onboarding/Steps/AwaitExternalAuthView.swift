@@ -58,7 +58,7 @@ struct AwaitExternalAuthView: View {
                 // Polling indicator
                 pollingCaption
             }
-            .padding(.horizontal, Tokens.Spacing.s5)
+            // No outer page padding — ConnectorView's winbody inset handles it.
 
             Spacer()
 
