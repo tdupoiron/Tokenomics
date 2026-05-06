@@ -27,3 +27,7 @@ Packages/
 
 # Internal planning — not meant to ship
 docs/roadmap.md
+
+# Local tooling caches
+.wrangler/
+.claude/

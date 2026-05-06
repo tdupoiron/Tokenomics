@@ -2,13 +2,16 @@ cask "tokenomics" do
   version "2.8.7"
   sha256 "d9ca1007602ba536d4221b5e15be0b186b5b81c57954455625a4588b31826d53"
 
-  url "https://github.com/rob-stout/Tokenomics/releases/download/v#{version}/Tokenomics-#{version}.dmg"
+  url "https://trytokenomics.com/download/dmg/v#{version}",
+      verified: "trytokenomics.com/download/"
   name "Tokenomics"
   desc "Menu bar app that tracks AI coding tool usage at a glance"
   homepage "https://github.com/rob-stout/Tokenomics"
 
+  # Live-check against GitHub directly — the trytokenomics.com URL is a
+  # counted redirect, not a list of releases.
   livecheck do
-    url :url
+    url "https://github.com/rob-stout/Tokenomics/releases/latest"
     strategy :github_latest
   end
 
