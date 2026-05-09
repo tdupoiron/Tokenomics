@@ -20,7 +20,7 @@ struct PermissionsStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Tokens.Spacing.s2) {
-                Text("macOS will ask twice")
+                Text("Permissions needed to start tracking…")
                     .font(Tokens.Typography.Onboarding.h2)
                     .foregroundStyle(Tokens.Color.text(scheme))
 
@@ -34,12 +34,12 @@ struct PermissionsStep: View {
                 permissionRow(
                     icon: "key.fill",
                     title: "Keychain access",
-                    detail: "Lets Tokenomics read your Claude Code sign-in. Choose Always Allow so it doesn't ask again."
+                    detail: "Lets Tokenomics read your AI provider's sign-in. Choose Always Allow so it doesn't ask again."
                 )
                 permissionRow(
                     icon: "rectangle.on.rectangle",
                     title: "Information from another app",
-                    detail: "macOS treats Claude Code's keychain entry as cross-app data. One tap to allow."
+                    detail: "macOS treats your AI provider's keychain entry as cross-app data. One tap to allow."
                 )
             }
             .padding(.top, Tokens.Spacing.s5)
@@ -103,26 +103,30 @@ struct PermissionsStep: View {
 }
 
 // MARK: - Preview
-
-private let permissionsStepperItems: [OnboardingStepperItem] = [
-    .init(label: "Permissions",      state: .active),
-    .init(label: "Pick a tool",      state: .upcoming),
-    .init(label: "Connect",          state: .upcoming),
-    .init(label: "Done",             state: .upcoming)
-]
+//
+// No stepper here — Permissions runs once across the whole app, while the
+// stepper (Checking tools → Installing → Signing in → Connection check) is
+// per-provider chrome that lives inside ConnectorView. Welcome and Chooser
+// preview the same way.
 
 #Preview("Permissions — light") {
-    WindowChromePreview(title: "Tokenomics setup", stepperItems: permissionsStepperItems) {
-        PermissionsStep(onContinue: {}, onBack: {})
-    }
-    .frame(width: 720, height: 560)
-    .preferredColorScheme(.light)
+    PermissionsStep(onContinue: {}, onBack: {})
+        // Match the chooser's winbody inset since this step ships with the
+        // same padding applied by ConnectorContainer in production.
+        .padding(.top, Tokens.Spacing.s6)
+        .padding(.horizontal, 40)
+        .padding(.bottom, Tokens.Spacing.s5 + 4)
+        .frame(width: 720, height: 560)
+        .background(Tokens.DynamicColor.bg)
+        .preferredColorScheme(.light)
 }
 
 #Preview("Permissions — dark") {
-    WindowChromePreview(title: "Tokenomics setup", stepperItems: permissionsStepperItems) {
-        PermissionsStep(onContinue: {}, onBack: {})
-    }
-    .frame(width: 720, height: 560)
-    .preferredColorScheme(.dark)
+    PermissionsStep(onContinue: {}, onBack: {})
+        .padding(.top, Tokens.Spacing.s6)
+        .padding(.horizontal, 40)
+        .padding(.bottom, Tokens.Spacing.s5 + 4)
+        .frame(width: 720, height: 560)
+        .background(Tokens.DynamicColor.bg)
+        .preferredColorScheme(.dark)
 }
