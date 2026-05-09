@@ -38,11 +38,17 @@ enum KeychainService {
     private static func readCredentialsFromFile() -> OAuthCredentials? {
         guard let data = try? Data(contentsOf: credentialsFileURL) else { return nil }
 
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let oauth = json["claudeAiOauth"] as? [String: Any],
+        // Claude Code 2.1.x stopped writing `claudeAiOauth` to this file (it now
+        // lives in the keychain only — the file holds `mcpOAuth` instead). Missing
+        // key is expected on current Claude Code; fall through silently to the
+        // keychain CLI path. Only log when the file is actually malformed JSON.
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            log.info("credentials file is not valid JSON — falling back to keychain")
+            return nil
+        }
+        guard let oauth = json["claudeAiOauth"] as? [String: Any],
               let token = oauth["accessToken"] as? String,
               token.hasPrefix("sk-ant-") else {
-            log.error("Failed to parse credentials file — unexpected structure or missing accessToken")
             return nil
         }
         let refreshToken = oauth["refreshToken"] as? String

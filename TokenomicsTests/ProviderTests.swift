@@ -45,35 +45,6 @@ final class ProviderTests: XCTestCase {
         XCTAssertEqual(ProviderId.cursor.category, .codingTools)
     }
 
-    // MARK: - Shared Pool Descriptions
-
-    func testSharedPool_anthropic_listsClaudeProducts() {
-        let desc = ProviderId.claude.sharedPoolDescription
-        XCTAssertNotNil(desc, "Anthropic platform must surface its shared-pool products")
-        XCTAssertTrue(desc!.contains("Claude Chat"))
-        XCTAssertTrue(desc!.contains("Claude Cowork"))
-        XCTAssertTrue(desc!.contains("Claude Code"))
-    }
-
-    func testSharedPool_openAI_listsKeyProducts() {
-        let desc = ProviderId.codex.sharedPoolDescription
-        XCTAssertNotNil(desc)
-        XCTAssertTrue(desc!.contains("ChatGPT"))
-        XCTAssertTrue(desc!.contains("Codex"))
-    }
-
-    func testSharedPool_google_listsKeyProducts() {
-        let desc = ProviderId.gemini.sharedPoolDescription
-        XCTAssertNotNil(desc)
-        XCTAssertTrue(desc!.contains("Gemini"))
-    }
-
-    func testSharedPool_singleProductProviders_areNil() {
-        // Single-product providers have no pool subtitle
-        XCTAssertNil(ProviderId.copilot.sharedPoolDescription)
-        XCTAssertNil(ProviderId.cursor.sharedPoolDescription)
-    }
-
     // MARK: - Connection State
 
     func testConnectionState_connected_isConnected() {

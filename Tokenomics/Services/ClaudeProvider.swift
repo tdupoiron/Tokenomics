@@ -79,13 +79,13 @@ actor ClaudeProvider: UsageProvider {
             shortWindow: WindowUsage(
                 label: "5-Hour Window",
                 utilization: data.fiveHour.utilization,
-                resetsAt: data.fiveHour.resetsAt,
+                resetsAt: data.fiveHour.resetsAt ?? .distantFuture,
                 windowDuration: 5 * 3600
             ),
             longWindow: WindowUsage(
                 label: "7-Day Window",
                 utilization: data.sevenDay.utilization,
-                resetsAt: data.sevenDay.resetsAt,
+                resetsAt: data.sevenDay.resetsAt ?? .distantFuture,
                 windowDuration: 7 * 24 * 3600
             ),
             planLabel: data.inferredPlan.rawValue,
