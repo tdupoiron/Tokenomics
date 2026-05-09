@@ -85,6 +85,23 @@ private struct PermissionsStepBody: View {
             }
             .padding(.top, Tokens.Spacing.s5)
 
+            // Escape hatch shown only after a denial. macOS sometimes records the
+            // denial at the system level — Try again will re-fail until the user
+            // flips the toggle in Privacy & Security manually.
+            if didDeny, let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") {
+                Link(destination: url) {
+                    HStack(spacing: 4) {
+                        Text("Open Privacy Settings")
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .font(Tokens.Typography.Onboarding.small)
+                    .foregroundStyle(Tokens.Color.accent(scheme))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, Tokens.Spacing.s3)
+            }
+
             Spacer(minLength: Tokens.Spacing.s5)
 
             WindowFooter {
