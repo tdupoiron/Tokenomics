@@ -49,6 +49,13 @@ actor GeminiConnector: ProviderConnector {
 
     private var activePhase: ActivePhase = .none
 
+    /// First-poll latch: when the connector enters in `.notInstalled`, the
+    /// initial `currentStep()` returns `.detecting` and kicks off the prereq
+    /// chain in the background. Subsequent polls return `.detecting` until the
+    /// chain transitions `activePhase` to `.confirmingInstall(...)`. Reset on
+    /// `clearFailure()` so retry replays the same intro.
+    private var didStartDetection = false
+
     /// When set, `currentStep()` returns `.failed` immediately. Cleared on cancel/skip.
     private var failedState: ConnectorError?
 
@@ -102,7 +109,20 @@ actor GeminiConnector: ProviderConnector {
         switch state {
         case .connected(let plan):
             return .connected(plan: plan)
-        case .notInstalled, .installedNoAuth, .authExpired:
+        case .notInstalled:
+            // Land on the prereq checklist, not the misleading "Sign in with
+            // Google" CTA. Kick off the chain async — by the next 1.5s poll
+            // tick activePhase will be `.confirmingInstall(.homebrew)` (or
+            // whichever prereq is missing first) and the .confirmingInstall
+            // case at the top of this function will return the right step.
+            if !didStartDetection {
+                didStartDetection = true
+                Task { await self.startPrerequisiteChain() }
+            }
+            return .detecting
+        case .installedNoAuth, .authExpired:
+            // Prereqs are all there — the only thing left is sign-in. The
+            // .needsAction CTA is honest in this case ("Sign in with Google").
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
@@ -144,11 +164,14 @@ actor GeminiConnector: ProviderConnector {
         activePhase = .none
         failedState = nil
         pendingStdinWrite = nil
+        didStartDetection = false
     }
 
     func clearFailure() async {
         failedState = nil
         activePhase = .none
+        // Re-arm so retry replays the detect → install intro.
+        didStartDetection = false
     }
 
     func clearInstallCache() async {
@@ -300,7 +323,26 @@ actor GeminiConnector: ProviderConnector {
             || lower.contains("could not resolve host") {
             return .homebrewNotReachable
         }
+        // AppleScript parser errors ("A unknown token can't go after this …")
+        // are bugs in Tokenomics, not anything the user can fix. Log the raw
+        // text and surface a generic message so users don't see internal
+        // gibberish.
+        if isLikelyTechnicalError(lower) {
+            Self.log.error("Suppressing technical Homebrew error from UI: \(reason, privacy: .public)")
+            return .cliInstallFailed("")
+        }
         return .cliInstallFailed(reason)
+    }
+
+    /// Heuristic: if the error string smells like a parser/syntax/internal
+    /// error rather than something a user could recognize and act on, treat
+    /// it as a generic install failure.
+    private func isLikelyTechnicalError(_ lowercaseReason: String) -> Bool {
+        let technicalMarkers = [
+            "unknown token", "syntax error", "expected", "applescript",
+            "osascript", "nsapplescripterror", "errosacanttellwhat"
+        ]
+        return technicalMarkers.contains(where: lowercaseReason.contains)
     }
 
     private func classifyBrewFormulaFailure(_ reason: String) -> ConnectorError {

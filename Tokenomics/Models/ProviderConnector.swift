@@ -167,7 +167,11 @@ enum ConnectorError: Sendable, Equatable {
         case .oauthFailed(let detail):
             return "Sign-in didn't complete. \(detail)"
         case .cliInstallFailed(let detail):
-            return "Setup couldn't finish. \(detail)"
+            // Empty detail = sanitized technical error (e.g. AppleScript parser
+            // failure) where the raw text wouldn't help the user. Show generic.
+            return detail.isEmpty
+                ? "Setup couldn't finish. Please try again."
+                : "Setup couldn't finish. \(detail)"
         case .detectionTimeout:
             return "We didn't detect a sign-in. If you finished signing in, tap Check now."
         case .appNotFound(let bundleId):

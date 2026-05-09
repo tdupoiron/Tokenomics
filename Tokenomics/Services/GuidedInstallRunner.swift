@@ -370,8 +370,17 @@ actor GuidedInstallRunner {
         let installerURL = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
         let shellCommand = "/bin/bash -c \"$(curl -fsSL \(installerURL))\""
 
+        // Escape the shell command for AppleScript's string literal syntax — the
+        // installer one-liner contains both backslashes and double-quotes, which
+        // would otherwise terminate the AppleScript string early and produce a
+        // parser error ("A unknown token can't go after this ...").
+        // Order matters: backslashes first, then quotes.
+        let escapedShell = shellCommand
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
         // Wrap in AppleScript admin elevation. This triggers the macOS native auth dialog.
-        let appleScriptSource = "do shell script \"\(shellCommand)\" with administrator privileges"
+        let appleScriptSource = "do shell script \"\(escapedShell)\" with administrator privileges"
 
         return AsyncStream<InstallEvent> { continuation in
             // AppleScript execution is synchronous — run it off the main thread.

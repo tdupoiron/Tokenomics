@@ -46,6 +46,13 @@ actor CodexConnector: ProviderConnector {
 
     private var activePhase: ActivePhase = .none
 
+    /// First-poll latch: when the connector enters in `.notInstalled`, the
+    /// initial `currentStep()` returns `.detecting` and kicks off the prereq
+    /// chain in the background. Subsequent polls return `.detecting` until the
+    /// chain transitions `activePhase` to `.confirmingInstall(...)`. Reset on
+    /// `clearFailure()` so retry replays the same intro.
+    private var didStartDetection = false
+
     /// When set, `currentStep()` returns `.failed` immediately. Cleared on cancel/skip.
     private var failedState: ConnectorError?
 
@@ -85,7 +92,18 @@ actor CodexConnector: ProviderConnector {
         switch state {
         case .connected(let plan):
             return .connected(plan: plan)
-        case .notInstalled, .installedNoAuth, .authExpired:
+        case .notInstalled:
+            // Land on the prereq checklist, not the misleading "Sign in with
+            // OpenAI" CTA. Kick off the chain async — by the next 1.5s poll
+            // tick activePhase will be `.confirmingInstall(.homebrew)` (or
+            // whichever prereq is missing first).
+            if !didStartDetection {
+                didStartDetection = true
+                Task { await self.startPrerequisiteChain() }
+            }
+            return .detecting
+        case .installedNoAuth, .authExpired:
+            // Prereqs are all there — sign-in CTA is honest in this case.
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
@@ -122,11 +140,14 @@ actor CodexConnector: ProviderConnector {
         await runner.cancel()
         activePhase = .none
         failedState = nil
+        didStartDetection = false
     }
 
     func clearFailure() async {
         failedState = nil
         activePhase = .none
+        // Re-arm so retry replays the detect → install intro.
+        didStartDetection = false
     }
 
     func clearInstallCache() async {
@@ -289,6 +310,14 @@ actor CodexConnector: ProviderConnector {
         if lower.contains("curl") || lower.contains("network") || lower.contains("connection refused")
             || lower.contains("could not resolve host") {
             return .homebrewNotReachable
+        }
+        // AppleScript parser errors are Tokenomics bugs, not user-actionable —
+        // log the raw text and show generic copy.
+        let technicalMarkers = ["unknown token", "syntax error", "expected", "applescript",
+                                "osascript", "nsapplescripterror", "errosacanttellwhat"]
+        if technicalMarkers.contains(where: lower.contains) {
+            Self.log.error("Suppressing technical Homebrew error from UI: \(reason, privacy: .public)")
+            return .cliInstallFailed("")
         }
         return .cliInstallFailed(reason)
     }
