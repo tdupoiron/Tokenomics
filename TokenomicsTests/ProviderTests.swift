@@ -29,12 +29,12 @@ final class ProviderTests: XCTestCase {
             "Anthropic must sit in Platforms — its usage pool covers chat, cowork, and code")
     }
 
-    func testCategory_openAI_isPlatforms() {
-        XCTAssertEqual(ProviderId.codex.category, .platforms)
+    func testCategory_openAI_isCodingTools() {
+        XCTAssertEqual(ProviderId.codex.category, .codingTools)
     }
 
-    func testCategory_google_isPlatforms() {
-        XCTAssertEqual(ProviderId.gemini.category, .platforms)
+    func testCategory_google_isCodingTools() {
+        XCTAssertEqual(ProviderId.gemini.category, .codingTools)
     }
 
     func testCategory_copilot_isCodingTools() {

@@ -67,6 +67,11 @@ final class UsageViewModel: ObservableObject {
 
     private let pollingService = PollingService()
     private var activityMonitor: ActivityMonitor?
+
+    /// Polling is gated behind onboarding completion so first-launch users don't
+    /// hit keychain / cross-app TCC prompts before the guided flow can explain
+    /// them. Flipped true the first time `startPolling()` actually runs.
+    private var pollingStarted = false
     let notificationService = NotificationService()
 
     private var isDetecting = false
@@ -225,8 +230,10 @@ final class UsageViewModel: ObservableObject {
         self.selectedTab = SettingsService.selectedTab
 
         // Pre-populate provider states with cached usage so data shows instantly
+        var hasAnyCached = false
         for id in ProviderId.allCases {
             if let cached = SettingsService.cachedUsage(for: id) {
+                hasAnyCached = true
                 providerStates[id] = ProviderState(
                     connection: .notInstalled,
                     usage: cached.snapshot,
@@ -236,22 +243,33 @@ final class UsageViewModel: ObservableObject {
                 )
             }
         }
+
+        // Migration: pre-onboarding-flow versions never set hasCompletedOnboarding.
+        // Treat any user with cached usage as already onboarded so the upgrade
+        // doesn't shove them through Welcome on launch.
+        if !self.hasCompletedOnboarding && hasAnyCached {
+            self.hasCompletedOnboarding = true
+            SettingsService.hasCompletedOnboarding = true
+        }
     }
 
     // MARK: - Lifecycle
 
     func startPolling() {
+        // Don't run detection until the user has been through onboarding. The
+        // guided flow's PermissionsStep is responsible for triggering the
+        // keychain / cross-app prompts at a known UI moment; running
+        // detectProviders() here would race the window and fire prompts blind.
+        guard hasCompletedOnboarding else { return }
+
+        // Idempotent: callers (MenuBarLabel.onAppear and completeOnboarding)
+        // can both invoke this without spinning up duplicate polling loops.
+        guard !pollingStarted else { return }
+        pollingStarted = true
+
         Task {
             // Initial detection
             await detectProviders()
-
-            // Auto-complete onboarding for existing users who already have Claude
-            if !hasCompletedOnboarding {
-                let claudeConnected = providerStates[.claude]?.connection.isConnected == true
-                if claudeConnected {
-                    completeOnboarding()
-                }
-            }
 
             // Set initial tab if needed
             if selectedTab == nil || !visibleProviders.contains(selectedTab ?? .claude) {
@@ -310,6 +328,10 @@ final class UsageViewModel: ObservableObject {
         if selectedTab == nil {
             selectedTab = visibleProviders.first ?? .claude
         }
+
+        // Polling was gated behind onboarding — kick it off now that the user
+        // has consented via the PermissionsStep. No-op if already running.
+        startPolling()
     }
 
     // MARK: - Provider Pin Management

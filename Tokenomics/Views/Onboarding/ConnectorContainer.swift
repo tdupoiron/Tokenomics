@@ -27,6 +27,7 @@ struct ConnectorContainer: View {
 
     enum Screen {
         case welcome
+        case permissions
         case chooser
         case connector
     }
@@ -36,9 +37,18 @@ struct ConnectorContainer: View {
             switch screen {
             case .welcome:
                 WelcomeView(
-                    onGetStarted: { screen = .chooser },
+                    onGetStarted: { screen = .permissions },
                     onSkip: completeOnboarding
                 )
+            case .permissions:
+                PermissionsStep(
+                    onContinue: { screen = .chooser },
+                    onBack: { screen = .welcome }
+                )
+                // Match chooser's winbody inset — mockup .winbody padding 32/40/28
+                .padding(.top, Tokens.Spacing.s6)
+                .padding(.horizontal, 40)
+                .padding(.bottom, Tokens.Spacing.s5 + 4)
             case .chooser:
                 ProviderChooserView(
                     viewModel: viewModel,
@@ -78,8 +88,9 @@ struct ConnectorContainer: View {
                 screen = .chooser
             }
             // If the user previously finished onboarding but re-opened via Settings,
-            // land on the chooser instead of welcome so they can add more providers.
-            if viewModel.hasCompletedOnboarding && screen == .welcome {
+            // land on the chooser instead of welcome/permissions so they can add
+            // more providers without re-running the first-launch chrome.
+            if viewModel.hasCompletedOnboarding && (screen == .welcome || screen == .permissions) {
                 screen = .chooser
             }
         }

@@ -21,10 +21,10 @@ struct TokenomicsApp: App {
             PopoverView(viewModel: viewModel, updaterService: updaterService)
                 .frame(width: popoverWidth)
         } label: {
+            // First-launch routing + polling kickoff live inside MenuBarLabel so
+            // the view's environment (openWindow) is available. startPolling()
+            // is gated on hasCompletedOnboarding inside the view model.
             MenuBarLabel(viewModel: viewModel)
-                .onAppear {
-                    viewModel.startPolling()
-                }
         }
         .menuBarExtraStyle(.window)
 
@@ -128,6 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// Smart mode picks the worst-of-N; pinned mode shows the user's choice.
 struct MenuBarLabel: View {
     @ObservedObject var viewModel: UsageViewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         HStack(spacing: 0) {
@@ -152,6 +153,16 @@ struct MenuBarLabel: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(viewModel.menuBarTooltip)
         .help(viewModel.menuBarTooltip)
+        .onAppear {
+            // First-launch users go through the guided flow before polling so
+            // the keychain / cross-app TCC prompts come from a known UI moment
+            // (PermissionsStep) instead of firing blind on app launch.
+            if !viewModel.hasCompletedOnboarding {
+                openWindow(id: "onboarding")
+            }
+            // Always-safe call — startPolling no-ops when not yet onboarded.
+            viewModel.startPolling()
+        }
     }
 
     // MARK: - Ring + Percentage
