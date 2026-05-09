@@ -4,27 +4,68 @@ import SwiftUI
 /// reading Claude Code's session token from the keychain. Sits between Welcome
 /// and ProviderChooser so users know what's coming before macOS interrupts.
 ///
-/// On Continue, fires `KeychainService.readAccessToken()` synchronously — that
-/// single read produces the keychain ACL prompt and (on macOS 15+) the "data
-/// from another app" prompt. The result is discarded; we only care about the
-/// side-effect of triggering the system prompts at a predictable moment.
+/// On Continue, calls `KeychainService.probeAccess()` — that triggers the
+/// keychain ACL prompt and (on macOS 15+) the "data from another app" prompt
+/// at a known UI moment. The probe distinguishes three outcomes:
+///   - granted (or no item exists yet) → advance to chooser
+///   - denied → switch to a hard-stop error state with a "Try again" CTA
 ///
-/// Layout matches DetectStep's checklist pattern: left-aligned h2 + lede,
-/// two surface cards, WindowFooter with Back + Continue.
+/// Layout: same surface cards in both states. The error state swaps the
+/// header, lede, and primary button label so the user understands why we
+/// can't move on without their explicit consent.
 struct PermissionsStep: View {
     var onContinue: () -> Void
     var onBack: () -> Void
+
+    @State private var didDeny = false
+
+    var body: some View {
+        PermissionsStepBody(
+            didDeny: didDeny,
+            onContinue: triggerPromptsAndContinue,
+            onBack: onBack
+        )
+    }
+
+    /// Probes keychain access and either advances or surfaces the denied state.
+    /// "Try again" routes through here too — re-firing the read so macOS can
+    /// re-prompt (it does, unless the user resolved it in System Settings).
+    private func triggerPromptsAndContinue() {
+        switch KeychainService.probeAccess() {
+        case .ok:
+            didDeny = false
+            onContinue()
+        case .denied:
+            didDeny = true
+        }
+    }
+}
+
+// MARK: - Stateless body
+//
+// Pulled out so previews can render both the initial and denied states by
+// passing `didDeny` directly. PermissionsStep owns the @State flag that
+// drives this in production.
+
+private struct PermissionsStepBody: View {
+    let didDeny: Bool
+    let onContinue: () -> Void
+    let onBack: () -> Void
 
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Tokens.Spacing.s2) {
-                Text("Permissions needed to start tracking…")
+                Text(didDeny ? "Permissions required" : "Permissions needed to start tracking…")
                     .font(Tokens.Typography.Onboarding.h2)
-                    .foregroundStyle(Tokens.Color.text(scheme))
+                    .foregroundStyle(didDeny
+                                     ? Tokens.Color.danger(scheme)
+                                     : Tokens.Color.text(scheme))
 
-                Text("Tokenomics reads where your AI tools store their session info so it can show usage. macOS protects you with two confirmations the first time.")
+                Text(didDeny
+                     ? "Tokenomics can't function without these. We only use them to coordinate your computer with the AI providers for usage tracking — your information never leaves your Mac."
+                     : "Tokenomics reads where your AI tools store their session info so it can show usage. macOS protects you with two confirmations the first time.")
                     .font(Tokens.Typography.Onboarding.lede)
                     .foregroundStyle(Tokens.Color.textMuted(scheme))
                     .fixedSize(horizontal: false, vertical: true)
@@ -49,14 +90,12 @@ struct PermissionsStep: View {
             WindowFooter {
                 BackLink(action: onBack)
             } trailing: {
-                Button("Continue", action: triggerPromptsAndContinue)
+                Button(didDeny ? "Try again" : "Continue", action: onContinue)
                     .buttonStyle(.tokenPrimary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-
-    // MARK: - Permission row
 
     /// Surface card matching DetectStep's `.check-row` (22pt icon · name + sublabel
     /// column · 14pt gap · 12×16 padding · 1px border · sm radius). No right
@@ -90,43 +129,43 @@ struct PermissionsStep: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
     }
-
-    // MARK: - Actions
-
-    /// Reading the Claude Code keychain item is what trips both prompts. Result
-    /// is discarded — the read is purely side-effectful for permission gating.
-    /// If the user already authorized in a previous session, this is a no-op.
-    private func triggerPromptsAndContinue() {
-        _ = KeychainService.readAccessToken()
-        onContinue()
-    }
 }
 
 // MARK: - Preview
 //
-// No stepper here — Permissions runs once across the whole app, while the
-// stepper (Checking tools → Installing → Signing in → Connection check) is
-// per-provider chrome that lives inside ConnectorView. Welcome and Chooser
-// preview the same way.
+// No stepper — Permissions runs once across the whole app, while the stepper
+// (Checking tools → Installing → Signing in → Connection check) is per-provider
+// chrome that lives inside ConnectorView. Welcome and Chooser preview the same way.
 
-#Preview("Permissions — light") {
-    PermissionsStep(onContinue: {}, onBack: {})
-        // Match the chooser's winbody inset since this step ships with the
-        // same padding applied by ConnectorContainer in production.
-        .padding(.top, Tokens.Spacing.s6)
-        .padding(.horizontal, 40)
-        .padding(.bottom, Tokens.Spacing.s5 + 4)
-        .frame(width: 720, height: 560)
-        .background(Tokens.DynamicColor.bg)
+private struct PermissionsPreviewWrapper: View {
+    let didDeny: Bool
+
+    var body: some View {
+        PermissionsStepBody(didDeny: didDeny, onContinue: {}, onBack: {})
+            .padding(.top, Tokens.Spacing.s6)
+            .padding(.horizontal, 40)
+            .padding(.bottom, Tokens.Spacing.s5 + 4)
+            .frame(width: 720, height: 560)
+            .background(Tokens.DynamicColor.bg)
+    }
+}
+
+#Preview("Permissions — initial — light") {
+    PermissionsPreviewWrapper(didDeny: false)
         .preferredColorScheme(.light)
 }
 
-#Preview("Permissions — dark") {
-    PermissionsStep(onContinue: {}, onBack: {})
-        .padding(.top, Tokens.Spacing.s6)
-        .padding(.horizontal, 40)
-        .padding(.bottom, Tokens.Spacing.s5 + 4)
-        .frame(width: 720, height: 560)
-        .background(Tokens.DynamicColor.bg)
+#Preview("Permissions — initial — dark") {
+    PermissionsPreviewWrapper(didDeny: false)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Permissions — denied — light") {
+    PermissionsPreviewWrapper(didDeny: true)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Permissions — denied — dark") {
+    PermissionsPreviewWrapper(didDeny: true)
         .preferredColorScheme(.dark)
 }
