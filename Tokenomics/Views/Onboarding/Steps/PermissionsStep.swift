@@ -8,11 +8,14 @@ import SwiftUI
 /// keychain ACL prompt and (on macOS 15+) the "data from another app" prompt
 /// at a known UI moment. The probe distinguishes three outcomes:
 ///   - granted (or no item exists yet) → advance to chooser
-///   - denied → switch to a hard-stop error state with a "Try again" CTA
+///   - denied → each surface card switches to an inline failure treatment
+///     with its own deep link into the relevant Privacy pane
 ///
-/// Layout: same surface cards in both states. The error state swaps the
-/// header, lede, and primary button label so the user understands why we
-/// can't move on without their explicit consent.
+/// Per the design system "inline failure surface" pattern: 30% danger border,
+/// 8% danger fill, headline in danger, body in text-muted, single concrete
+/// next-step CTA per block. Two CTAs total intentionally breaks the "one CTA
+/// per block" rule because the two permissions are independent — a single
+/// global link would force users to re-orient between two unrelated panes.
 struct PermissionsStep: View {
     var onContinue: () -> Void
     var onBack: () -> Void
@@ -54,14 +57,53 @@ private struct PermissionsStepBody: View {
 
     @Environment(\.colorScheme) private var scheme
 
+    /// One row of the permissions checklist. The same data drives both the
+    /// initial explainer state and the inline failure surface — see
+    /// `permissionCard(spec:didDeny:)` for how each branch renders.
+    private struct RowSpec {
+        let icon: String
+        let title: String
+        let detail: String
+        let deniedTitle: String
+        let deniedDetail: String
+        let fixLabel: String
+        let fixURL: URL
+    }
+
+    private var keychainRow: RowSpec {
+        RowSpec(
+            icon: "key.fill",
+            title: "Keychain access",
+            detail: "Lets Tokenomics read your AI provider's sign-in. Choose Always Allow so it doesn't ask again.",
+            deniedTitle: "Keychain access denied",
+            deniedDetail: "Tokenomics couldn't read your AI provider's session. Approve the keychain item in Keychain Access.",
+            fixLabel: "Fix permission",
+            // file:// URL routes through Launch Services and opens the app.
+            fixURL: URL(fileURLWithPath: "/System/Applications/Utilities/Keychain Access.app")
+        )
+    }
+
+    private var crossAppRow: RowSpec {
+        RowSpec(
+            icon: "rectangle.on.rectangle",
+            title: "Information from another app",
+            detail: "macOS treats your AI provider's keychain entry as cross-app data. One tap to allow.",
+            deniedTitle: "Cross-app access denied",
+            deniedDetail: "macOS blocked Tokenomics from reading another app's data. Re-enable it under App Management.",
+            fixLabel: "Fix permission",
+            // Privacy_AppBundles is the Privacy & Security pane that governs
+            // cross-app data access on macOS 15+. Falls back gracefully on
+            // older macOS — the URL still routes to Privacy & Security.
+            fixURL: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles")!
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Tokens.Spacing.s2) {
-                Text(didDeny ? "Permissions required" : "Permissions needed to start tracking…")
+                Text("Permissions needed to start tracking…")
                     .font(Tokens.Typography.Onboarding.h2)
-                    .foregroundStyle(didDeny
-                                     ? Tokens.Color.danger(scheme)
-                                     : Tokens.Color.text(scheme))
+                    .foregroundStyle(Tokens.Color.text(scheme))
 
                 Text(didDeny
                      ? "Tokenomics can't function without these. We only use them to coordinate your computer with the AI providers for usage tracking — your information never leaves your Mac."
@@ -72,35 +114,10 @@ private struct PermissionsStepBody: View {
             }
 
             VStack(spacing: Tokens.Spacing.s2) {
-                permissionRow(
-                    icon: "key.fill",
-                    title: "Keychain access",
-                    detail: "Lets Tokenomics read your AI provider's sign-in. Choose Always Allow so it doesn't ask again."
-                )
-                permissionRow(
-                    icon: "rectangle.on.rectangle",
-                    title: "Information from another app",
-                    detail: "macOS treats your AI provider's keychain entry as cross-app data. One tap to allow."
-                )
+                permissionCard(spec: keychainRow, didDeny: didDeny)
+                permissionCard(spec: crossAppRow, didDeny: didDeny)
             }
             .padding(.top, Tokens.Spacing.s5)
-
-            // Escape hatch shown only after a denial. macOS sometimes records the
-            // denial at the system level — Try again will re-fail until the user
-            // flips the toggle in Privacy & Security manually.
-            if didDeny, let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") {
-                Link(destination: url) {
-                    HStack(spacing: 4) {
-                        Text("Open Privacy Settings")
-                        Image(systemName: "arrow.up.right.square")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .font(Tokens.Typography.Onboarding.small)
-                    .foregroundStyle(Tokens.Color.accent(scheme))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, Tokens.Spacing.s3)
-            }
 
             Spacer(minLength: Tokens.Spacing.s5)
 
@@ -114,35 +131,61 @@ private struct PermissionsStepBody: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// Surface card matching DetectStep's `.check-row` (22pt icon · name + sublabel
-    /// column · 14pt gap · 12×16 padding · 1px border · sm radius). No right
-    /// meta column — these rows are explainers, not status.
-    private func permissionRow(icon: String, title: String, detail: String) -> some View {
+    // MARK: - Permission card
+
+    /// Surface card. Switches between "explainer" and "inline failure surface"
+    /// styling based on `didDeny`. Failure surface follows the design system
+    /// recipe: 30% danger border, 8% danger fill, headline in danger, body in
+    /// text-muted, single CTA at the bottom of the text column.
+    private func permissionCard(spec: RowSpec, didDeny: Bool) -> some View {
         HStack(alignment: .top, spacing: Tokens.Spacing.s4 - 2) {
-            Image(systemName: icon)
+            Image(systemName: spec.icon)
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Tokens.Color.accent(scheme))
+                .foregroundStyle(didDeny ? Tokens.Color.danger(scheme) : Tokens.Color.accent(scheme))
                 .frame(width: 22, height: 22)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(didDeny ? spec.deniedTitle : spec.title)
                     .font(Tokens.Typography.Onboarding.body.weight(.medium))
-                    .foregroundStyle(Tokens.Color.text(scheme))
+                    .foregroundStyle(didDeny ? Tokens.Color.danger(scheme) : Tokens.Color.text(scheme))
 
-                Text(detail)
+                Text(didDeny ? spec.deniedDetail : spec.detail)
                     .font(.custom("DM Sans", size: 12))
                     .foregroundStyle(Tokens.Color.textMuted(scheme))
                     .fixedSize(horizontal: false, vertical: true)
+
+                if didDeny {
+                    Link(destination: spec.fixURL) {
+                        HStack(spacing: 4) {
+                            Text(spec.fixLabel)
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .font(Tokens.Typography.Onboarding.small)
+                        .foregroundStyle(Tokens.Color.danger(scheme))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, Tokens.Spacing.s2)
+                }
             }
 
             Spacer(minLength: 0)
         }
         .padding(.vertical, Tokens.Spacing.s4)
         .padding(.horizontal, Tokens.Spacing.s5 - 4)
-        .background(Tokens.Color.surface(scheme))
+        .background(
+            didDeny
+                ? Tokens.Color.danger(scheme).opacity(0.08)
+                : Tokens.Color.surface(scheme)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: Tokens.Radius.sm)
-                .strokeBorder(Tokens.Color.border(scheme), lineWidth: 1)
+                .strokeBorder(
+                    didDeny
+                        ? Tokens.Color.danger(scheme).opacity(0.30)
+                        : Tokens.Color.border(scheme),
+                    lineWidth: 1
+                )
         )
         .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
     }
