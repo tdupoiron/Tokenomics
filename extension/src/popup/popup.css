@@ -158,6 +158,46 @@ body {
   background: var(--widget-divider);
 }
 
+/* ── EmptyState ──────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  min-height: 140px;
+  padding: var(--s-5) var(--s-4);
+  text-align: center;
+}
+
+.empty-state__copy {
+  margin: 0;
+  max-width: 260px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--widget-label);
+}
+
+.empty-state__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px var(--s-3);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--widget-fg);
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid var(--widget-divider);
+  border-radius: var(--r-xs);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.empty-state__cta:hover {
+  background: var(--widget-hover);
+}
+
 /* ── UsageBar ────────────────────────────────────────── */
 
 .usage-bar {

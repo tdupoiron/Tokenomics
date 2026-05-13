@@ -7,6 +7,7 @@ import {
   setPinnedProvider,
   setSelectedTab,
 } from '../storage';
+import { EmptyState } from './components/EmptyState';
 import { Header } from './components/Header';
 import { ProviderTabBar } from './components/ProviderTabBar';
 import { SyncFooter } from './components/SyncFooter';
@@ -98,7 +99,9 @@ function App() {
             <div class="usage-stack__divider" />
             <UsageBar {...SAMPLE_CLAUDE_USAGE.longWindow} isLong />
           </div>
-        ) : null}
+        ) : (
+          <EmptyState provider={selected} />
+        )}
       </main>
 
       <SyncFooter
