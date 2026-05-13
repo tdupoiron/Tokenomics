@@ -1,5 +1,8 @@
-/* Inline SVGs sized 14×14 by default. Use width/height props to resize.
-   stroke + fill use currentColor so they inherit the surrounding text color. */
+/* Inline SVG approximations of the SF Symbols used in the Mac popover
+   (arrow.clockwise, circle.circle, gearshape, pin.fill, checkmark,
+   chevron.down). Apple licenses SF Symbols for system UI only, so these
+   are redrawn approximations sourced from open-licensed icon sets and
+   tuned to read crisply at 14px. */
 
 interface IconProps {
   size?: number;
@@ -11,17 +14,17 @@ export function IconRefresh({ size = 14, class: className }: IconProps) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 16 16"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      stroke-width="1.5"
+      stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
       class={className}
       aria-hidden="true"
     >
-      <path d="M13.5 8a5.5 5.5 0 1 1-1.65-3.93" />
-      <polyline points="13.5 2.5 13.5 5.5 10.5 5.5" />
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
     </svg>
   );
 }
@@ -32,31 +35,40 @@ export function IconGear({ size = 14, class: className }: IconProps) {
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       class={className}
       aria-hidden="true"
     >
-      <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96a7.07 7.07 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.484.484 0 0 0-.59.22L2.74 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54a7 7 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z" />
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
-export function IconPinFill({ size = 12, class: className }: IconProps) {
+export function IconPinFill({ size = 14, class: className }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="currentColor"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linejoin="round"
       class={className}
       aria-hidden="true"
     >
-      <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+      <line x1="12" y1="17" x2="12" y2="22" stroke-linecap="round" />
+      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
     </svg>
   );
 }
 
-export function IconCircleDot({ size = 12, class: className }: IconProps) {
+export function IconCircleDot({ size = 14, class: className }: IconProps) {
   return (
     <svg
       width={size}
@@ -64,17 +76,17 @@ export function IconCircleDot({ size = 12, class: className }: IconProps) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      stroke-width="1.5"
+      stroke-width="2"
       class={className}
       aria-hidden="true"
     >
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
-export function IconCheck({ size = 10, class: className }: IconProps) {
+export function IconCheck({ size = 12, class: className }: IconProps) {
   return (
     <svg
       width={size}
@@ -93,17 +105,21 @@ export function IconCheck({ size = 10, class: className }: IconProps) {
   );
 }
 
-export function IconChevronDown({ size = 6, class: className }: IconProps) {
+export function IconChevronDown({ size = 8, class: className }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 8 8"
-      fill="currentColor"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       class={className}
       aria-hidden="true"
     >
-      <polygon points="0,2 8,2 4,7" />
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
