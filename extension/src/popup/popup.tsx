@@ -1,12 +1,20 @@
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { PROVIDERS, type ProviderId } from '../types';
+import browser from 'webextension-polyfill';
+import type { ExtensionMessage, ExtensionResponse } from '../messages';
 import {
+  computePace,
+  formatTimeUntilReset,
+  type ProviderUsageSnapshot,
+} from '../snapshot';
+import {
+  getClaudeSnapshot,
   getPinnedProvider,
   getSelectedTab,
   setPinnedProvider,
   setSelectedTab,
 } from '../storage';
+import { PROVIDERS, type ProviderId } from '../types';
 import { EmptyState } from './components/EmptyState';
 import { Header } from './components/Header';
 import { ProviderTabBar } from './components/ProviderTabBar';
@@ -16,32 +24,10 @@ import { UsageBar } from './components/UsageBar';
 const DEFAULT_TAB: ProviderId = PROVIDERS[0];
 
 /**
- * Phase 1 visible providers — only Claude has a live data path in commit 5.
- * Commit 6 will replace this with a storage-derived value when more readers
- * land.
+ * Phase 1 visible providers — only Claude has a live reader. Phase 1.5
+ * will lift this to a derived value once additional snapshot keys exist.
  */
 const VISIBLE_PROVIDERS: readonly ProviderId[] = ['claude'];
-
-/**
- * Hardcoded sample so commit 3 can review the UsageBar visual.
- * Commit 6 replaces this with the snapshot from chrome.storage.local.
- */
-const SAMPLE_CLAUDE_USAGE = {
-  shortWindow: {
-    label: '5-Hour Window',
-    utilization: 36,
-    pace: 0.5,
-    sublabel: 'Resets in 2h 30m',
-  },
-  longWindow: {
-    label: '7-Day Window',
-    utilization: 72,
-    pace: 0.6,
-    sublabel: 'Resets in 4d',
-  },
-  planLabel: 'Pro',
-  lastSynced: new Date(),
-};
 
 function applyTheme() {
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -51,12 +37,32 @@ function applyTheme() {
 function App() {
   const [selected, setSelected] = useState<ProviderId>(DEFAULT_TAB);
   const [pinned, setPinned] = useState<ProviderId | null>(null);
+  const [snapshot, setSnapshot] = useState<ProviderUsageSnapshot | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Initial load from storage.
   useEffect(() => {
     void getSelectedTab().then((stored) => {
       if (stored) setSelected(stored);
     });
     void getPinnedProvider().then(setPinned);
+    void getClaudeSnapshot().then(setSnapshot);
+  }, []);
+
+  // Live updates from the service worker.
+  useEffect(() => {
+    const handler = (
+      changes: Record<string, browser.Storage.StorageChange>,
+      area: string,
+    ) => {
+      if (area !== 'local') return;
+      if ('claudeSnapshot' in changes) {
+        const next = changes['claudeSnapshot']?.newValue;
+        setSnapshot((next as ProviderUsageSnapshot | undefined) ?? null);
+      }
+    };
+    browser.storage.onChanged.addListener(handler);
+    return () => browser.storage.onChanged.removeListener(handler);
   }, []);
 
   const handleSelectTab = (provider: ProviderId) => {
@@ -75,38 +81,45 @@ function App() {
     void setPinnedProvider(next);
   };
 
-  const handleRefresh = () => {
-    // Commit 5/6 will message the service worker to re-poll.
-    console.log('[tokenomics] refresh requested');
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const message: ExtensionMessage = { kind: 'REFRESH_REQUESTED' };
+      const response = (await browser.runtime.sendMessage(message)) as
+        | ExtensionResponse
+        | undefined;
+      if (response?.kind === 'REFRESH_FAILED') {
+        console.warn('[tokenomics] refresh failed:', response.error);
+      } else if (response?.kind === 'REFRESH_BACKOFF') {
+        console.warn('[tokenomics] refresh skipped, rate limited until', new Date(response.until));
+      }
+    } catch (err) {
+      console.warn('[tokenomics] refresh dispatch failed', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleSettings = () => {
-    // Options page lands in a later phase.
-    console.log('[tokenomics] settings requested');
+    console.log('[tokenomics] settings requested (options page lands later)');
   };
 
-  const showSampleUsage = selected === 'claude';
+  const showLiveClaude = selected === 'claude' && snapshot !== null;
+  const planLabel = showLiveClaude ? snapshot.planLabel : undefined;
+  const lastSynced = showLiveClaude ? new Date(snapshot.capturedAt) : null;
 
   return (
     <div class="popup">
-      <Header planLabel={showSampleUsage ? SAMPLE_CLAUDE_USAGE.planLabel : undefined} />
+      <Header planLabel={planLabel} />
       <ProviderTabBar selected={selected} onSelect={handleSelectTab} />
 
       <main class="popup__body">
-        {showSampleUsage ? (
-          <div class="usage-stack">
-            <UsageBar {...SAMPLE_CLAUDE_USAGE.shortWindow} />
-            <div class="usage-stack__divider" />
-            <UsageBar {...SAMPLE_CLAUDE_USAGE.longWindow} isLong />
-          </div>
-        ) : (
-          <EmptyState provider={selected} />
-        )}
+        {showLiveClaude ? renderUsageBars(snapshot) : <EmptyState provider={selected} />}
       </main>
 
       <SyncFooter
-        lastSynced={showSampleUsage ? SAMPLE_CLAUDE_USAGE.lastSynced : null}
-        isLoading={false}
+        lastSynced={lastSynced}
+        isLoading={isRefreshing}
         onRefresh={handleRefresh}
         onSettings={handleSettings}
         visibleProviders={VISIBLE_PROVIDERS}
@@ -114,6 +127,33 @@ function App() {
         onSetSmart={handleSetSmart}
         onTogglePin={handleTogglePin}
       />
+    </div>
+  );
+}
+
+function renderUsageBars(snapshot: ProviderUsageSnapshot) {
+  const short = snapshot.shortWindow;
+  const long = snapshot.longWindow;
+  return (
+    <div class="usage-stack">
+      <UsageBar
+        label={short.label}
+        utilization={short.utilization}
+        pace={computePace(short)}
+        sublabel={formatTimeUntilReset(short)}
+      />
+      {long ? (
+        <>
+          <div class="usage-stack__divider" />
+          <UsageBar
+            isLong
+            label={long.label}
+            utilization={long.utilization}
+            pace={computePace(long)}
+            sublabel={formatTimeUntilReset(long)}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

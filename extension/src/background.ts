@@ -3,6 +3,7 @@ import { AuthError, fetchClaudeUsage, RateLimitError } from './claude';
 import type { ExtensionMessage, ExtensionResponse } from './messages';
 import {
   getBackoff,
+  getClaudeSnapshot,
   setBackoff,
   setClaudeAuth,
   setClaudeSnapshot,
@@ -65,10 +66,12 @@ async function pollClaude(trigger: 'install' | 'alarm' | 'manual'): Promise<void
     await setClaudeSnapshot(snapshot);
     await setClaudeAuth('authenticated');
     await setBackoff(null);
+    await updateBadge();
     console.log(`[tokenomics] poll ok (${trigger})`, snapshot);
   } catch (err) {
     if (err instanceof AuthError) {
       await setClaudeAuth('unauthenticated');
+      await clearBadge();
       console.log('[tokenomics] claude.ai not signed in');
     } else if (err instanceof RateLimitError) {
       const next = nextBackoff(existing);
@@ -88,4 +91,27 @@ function nextBackoff(prev: { nextDelayMs: number } | null) {
     until: Date.now() + delay,
     nextDelayMs: Math.min(delay * 2, BACKOFF_MAX_MS),
   };
+}
+
+// ── Toolbar badge ───────────────────────────────────────────
+// Phase 1: only Claude has a reader, so the badge collapses to its
+// short-window utilization. Phase 1.5 will pick smart-of-N vs pinned
+// once other providers' snapshots exist.
+
+async function updateBadge(): Promise<void> {
+  const snapshot = await getClaudeSnapshot();
+  if (!snapshot) {
+    await clearBadge();
+    return;
+  }
+  const value = Math.round(snapshot.shortWindow.utilization);
+  await browser.action.setBadgeText({ text: `${value}%` });
+  await browser.action.setBadgeBackgroundColor({ color: '#2F84BF' });
+  if ('setBadgeTextColor' in browser.action) {
+    await browser.action.setBadgeTextColor({ color: '#FFFFFF' });
+  }
+}
+
+async function clearBadge(): Promise<void> {
+  await browser.action.setBadgeText({ text: '' });
 }
