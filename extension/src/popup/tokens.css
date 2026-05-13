@@ -1,0 +1,76 @@
+/* Design system tokens. Sourced from
+   ~/projects/trytokenomics-site/design-system.md
+   "Quick start: CSS variables".
+
+   --font-sans is set to the system stack — design-system.md says
+   "SF Pro for the app itself and widgets"; this popup is an app
+   surface, not the marketing site. */
+
+:root {
+  --ink-900: #051928;
+  --ink-800: #0e334d;
+  --ink-700: #286195;
+  --brand-600: #2f84bf;
+  --brand-500: #3389c7;
+  --brand-400: #4ba6d2;
+  --brand-300: #56a2d6;
+  --brand-200: #75cbf5;
+  --cream-50: #f3efe5;
+  --cream-100: #e6e0d4;
+  --cream-200: #d9d1c0;
+  --white: #ffffff;
+
+  --bg: var(--cream-50);
+  --bg-2: var(--cream-100);
+  --surface: #ffffff;
+  --surface-2: #fbf8f1;
+  --border: rgba(14, 51, 77, 0.12);
+  --border-strong: rgba(14, 51, 77, 0.22);
+  --text: #0e334d;
+  --text-muted: rgba(14, 51, 77, 0.64);
+  --text-subtle: rgba(14, 51, 77, 0.44);
+  --accent: #2f84bf;
+  --accent-ink: #0e334d;
+  --success: #2f8f4f;
+  --warning: #c26a1f;
+  --danger: #b33a3a;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(14, 51, 77, 0.06), 0 1px 1px rgba(14, 51, 77, 0.04);
+  --shadow-md: 0 8px 24px rgba(14, 51, 77, 0.1), 0 2px 6px rgba(14, 51, 77, 0.06);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+}
+
+[data-theme='dark'] {
+  --bg: #07101a;
+  --bg-2: #0b1a29;
+  --surface: #0e334d;
+  --surface-2: #0a2439;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --text: #e6eef6;
+  --text-muted: rgba(230, 238, 246, 0.68);
+  --text-subtle: rgba(230, 238, 246, 0.44);
+  --accent: #75cbf5;
+  --accent-ink: #e6eef6;
+  --success: #6fd18a;
+  --warning: #e2a765;
+  --danger: #e27777;
+}

@@ -29,6 +29,7 @@ await ctx.rebuild();
 await cp('src/manifest.json', `${outdir}/manifest.json`);
 await cp('src/popup/index.html', `${outdir}/popup/index.html`);
 await cp('src/popup/popup.css', `${outdir}/popup/popup.css`);
+await cp('src/popup/tokens.css', `${outdir}/popup/tokens.css`);
 if (existsSync('src/icons')) {
   await cp('src/icons', `${outdir}/icons`, { recursive: true });
 }
