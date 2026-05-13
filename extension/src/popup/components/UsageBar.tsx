@@ -5,6 +5,8 @@ interface Props {
   utilization: number;
   pace: number;
   sublabel: string;
+  /** When true, paints with the long-window color (brand-300 / brand-500). */
+  isLong?: boolean;
 }
 
 const BAR_HEIGHT = 6;
@@ -13,7 +15,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function UsageBar({ label, utilization, pace, sublabel }: Props) {
+export function UsageBar({ label, utilization, pace, sublabel, isLong = false }: Props) {
   const target = clamp(utilization / 100, 0, 1);
   const clampedPace = clamp(pace, 0, 1);
   const showPaceMarker = clampedPace > 0.01 && clampedPace < 0.99;
@@ -25,7 +27,7 @@ export function UsageBar({ label, utilization, pace, sublabel }: Props) {
   }, [target]);
 
   return (
-    <div class="usage-bar">
+    <div class={`usage-bar${isLong ? ' usage-bar--long' : ''}`}>
       <div class="usage-bar__header">
         <span class="usage-bar__label">{label}</span>
         <span class="usage-bar__value">{Math.round(utilization)}%</span>

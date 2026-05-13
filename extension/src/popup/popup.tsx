@@ -96,7 +96,7 @@ function App() {
           <div class="usage-stack">
             <UsageBar {...SAMPLE_CLAUDE_USAGE.shortWindow} />
             <div class="usage-stack__divider" />
-            <UsageBar {...SAMPLE_CLAUDE_USAGE.longWindow} />
+            <UsageBar {...SAMPLE_CLAUDE_USAGE.longWindow} isLong />
           </div>
         ) : null}
       </main>
