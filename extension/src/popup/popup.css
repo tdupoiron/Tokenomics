@@ -1,0 +1,36 @@
+/* Phase 1 scaffold. Design-system tokens + full chrome land in commit 2. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 360px;
+  min-height: 200px;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+.popup {
+  padding: 16px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.popup__placeholder {
+  margin: 0;
+  color: #6b6b6b;
+}
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    background: #0f1318;
+  }
+
+  .popup {
+    color: #ececec;
+  }
+
+  .popup__placeholder {
+    color: #9a9a9a;
+  }
+}
