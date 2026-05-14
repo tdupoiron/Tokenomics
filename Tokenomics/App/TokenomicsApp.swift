@@ -65,18 +65,28 @@ struct TokenomicsApp: App {
 /// is visible), then restores `.accessory` when it disappears.
 struct OnboardingWindowRoot: View {
     @ObservedObject var viewModel: UsageViewModel
+    @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
-        ConnectorContainer(viewModel: viewModel) { /* completion handled by VM */ }
-            .frame(width: 720, height: 560)
-            .background(Tokens.DynamicColor.bg.ignoresSafeArea())
-            .onAppear {
-                NSApplication.shared.setActivationPolicy(.regular)
-                NSApp.activate(ignoringOtherApps: true)
-            }
-            .onDisappear {
-                NSApplication.shared.setActivationPolicy(.accessory)
-            }
+        ConnectorContainer(viewModel: viewModel) {
+            // Onboarding finished. Close the window and bring the menu bar
+            // back into focus so the user can click the Tokenomics icon to
+            // see their usage. (SwiftUI's MenuBarExtra doesn't expose a
+            // public API to *open* the popover programmatically — the user
+            // has to click the icon themselves. Activating the app gives the
+            // icon visual focus in case the menu bar was occluded.)
+            NSApp.activate(ignoringOtherApps: true)
+            dismissWindow(id: "onboarding")
+        }
+        .frame(width: 720, height: 560)
+        .background(Tokens.DynamicColor.bg.ignoresSafeArea())
+        .onAppear {
+            NSApplication.shared.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        .onDisappear {
+            NSApplication.shared.setActivationPolicy(.accessory)
+        }
     }
 }
 

@@ -130,6 +130,22 @@ actor APIKeyConnector: ProviderConnector {
         activePhase = .none
     }
 
+    /// Back from the paste step should land on the "Open Provider" step,
+    /// not all the way back at the chooser — the user is mid-flow and may
+    /// need to re-read the instructions or re-open the provider's dashboard.
+    func goBackOneStep() async {
+        switch activePhase {
+        case .pasteKey:
+            activePhase = .openProviderSite
+        case .openProviderSite:
+            // First sub-step has no meaningful previous step; let the chooser
+            // back-out handle this case via the connector's onBack closure.
+            activePhase = .none
+        case .none:
+            break
+        }
+    }
+
     func clearFailure() async {
         activePhase = .none
     }

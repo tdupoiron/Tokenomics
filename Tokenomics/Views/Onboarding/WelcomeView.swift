@@ -113,7 +113,7 @@ struct WelcomeView: View {
 
         var link = AttributedString("Learn more →")
         link.foregroundColor = NSColor(Tokens.Color.accent(scheme))
-        link.link = URL(string: "https://trytokenomics.com")
+        link.link = URL(string: "https://github.com/rob-stout/Tokenomics/blob/main/docs/PRIVACY.md")
 
         return base + link
     }

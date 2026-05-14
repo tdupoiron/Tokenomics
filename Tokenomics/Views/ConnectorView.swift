@@ -153,12 +153,14 @@ struct ConnectorView: View {
                 onBack: onBack
             )
         case .pasteAPIKey(let providerName, let helpURL):
-            // Pattern E step 2 — secure paste field.
+            // Pattern E step 2 — secure paste field. Back goes to the "Get
+            // API key" step (not the chooser) — the user is mid-flow and
+            // may want to re-read the instructions or re-open the dashboard.
             APIKeyPasteStep(
                 providerName: providerName,
                 helpURL: helpURL,
                 onSubmit: { key in viewModel.tappedSubmitAPIKey(key) },
-                onBack: onBack
+                onBack: { viewModel.tappedBackOneStep() }
             )
         default:
             inProgressState
@@ -351,7 +353,7 @@ struct ConnectorView: View {
                 }
                 .buttonStyle(.tokenPrimary)
 
-                Button("I'm all set — show my usage") {
+                Button("I'm all set") {
                     viewModel.tappedAllSet()
                 }
                 .buttonStyle(.tokenGhost)

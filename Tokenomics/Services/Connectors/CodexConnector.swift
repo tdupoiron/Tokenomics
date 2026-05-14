@@ -103,7 +103,14 @@ actor CodexConnector: ProviderConnector {
             }
             return .detecting
         case .installedNoAuth, .authExpired:
-            // Prereqs are all there — sign-in CTA is honest in this case.
+            // Prereqs are all there — only sign-in remains. Still show the
+            // "Checking your Mac" interstitial once so the user gets the
+            // same coherent flow regardless of what was already installed
+            // (Bug B).
+            if !didStartDetection {
+                didStartDetection = true
+                return .detecting
+            }
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))

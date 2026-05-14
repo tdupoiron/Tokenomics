@@ -39,9 +39,16 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         let l1 = labels.step1; let l2 = labels.step2
         let l3 = labels.step3; let l4 = labels.step4
         switch step {
-        case .detecting, .needsAction:
+        case .detecting:
+            // Checking the user's Mac for the prerequisites this provider needs.
             return [Item(label: l1, state: a), Item(label: l2, state: u),
                     Item(label: l3, state: u), Item(label: l4, state: u)]
+        case .needsAction:
+            // All prereqs are present — only sign-in remains. The next user
+            // action is the OAuth handoff, so step 3 (Signing in) is active.
+            // Steps 1+2 are complete because detection found everything installed.
+            return [Item(label: l1, state: c), Item(label: l2, state: c),
+                    Item(label: l3, state: a), Item(label: l4, state: u)]
         case .confirmingInstall, .installingDependency, .installing,
              .openProviderSite:
             // Step 2 active: installing tools / opening provider site for API key.
@@ -199,6 +206,19 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
         }
     }
 
+    /// Step view's Back tapped on a screen that has a meaningful previous
+    /// step within the connector's sub-flow (e.g. Paste API key → Get API key).
+    /// Delegates to the connector to transition its phase; polling picks up
+    /// the change and the UI routes to the previous screen on the next tick.
+    func tappedBackOneStep() {
+        Task { [connector, weak self] in
+            await connector.goBackOneStep()
+            guard let self else { return }
+            let current = await self.connector.currentStep()
+            self.step = current
+        }
+    }
+
     /// Submits an API key from the `.pasteAPIKey` step.
     /// Calls the connector's `submitAPIKey(_:)`, then forces a state refresh.
     func tappedSubmitAPIKey(_ key: String) {
@@ -219,7 +239,7 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             await connector.clearFailure()
             guard let self else { return }
             self.step = .detecting
-            if self.pollingTask == nil { self.start() }
+            self.restartPolling()
         }
     }
 
@@ -232,8 +252,19 @@ final class ConnectorViewModel: ObservableObject, Identifiable {
             await connector.clearFailure()
             guard let self else { return }
             self.step = .detecting
-            if self.pollingTask == nil { self.start() }
+            self.restartPolling()
         }
+    }
+
+    /// Cancel any in-flight polling task and start a fresh one. Used by both
+    /// recovery paths because `start()`'s "skip if pollingTask != nil" guard
+    /// would otherwise keep us locked to a Task that already returned on
+    /// `.failed` — leaving the UI showing `.detecting` with no live polling
+    /// loop to drive the state machine forward.
+    private func restartPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+        start()
     }
 
     /// Connected — user wants to add another provider.

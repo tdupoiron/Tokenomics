@@ -54,6 +54,12 @@ actor CopilotConnector: ProviderConnector {
     /// When set, `currentStep()` returns `.failed` immediately. Cleared on cancel/skip.
     private var failedState: ConnectorError?
 
+    /// Have we shown the "Checking your Mac" intro yet this session?
+    /// Used to display the DetectStep once before transitioning to the
+    /// appropriate needsAction CTA, so the flow feels consistent regardless
+    /// of whether `gh` was already installed (Bug B).
+    private var didStartDetection = false
+
     // MARK: - Init
 
     init(provider: CopilotProvider = CopilotProvider(),
@@ -96,10 +102,14 @@ actor CopilotConnector: ProviderConnector {
         switch state {
         case .connected(let plan):
             return .connected(plan: plan)
-        case .notInstalled:
-            return .needsAction
-        case .installedNoAuth, .authExpired:
-            // gh is installed but not authed — go straight to login.
+        case .notInstalled, .installedNoAuth, .authExpired:
+            // Show "Checking your Mac" interstitial once before the
+            // needsAction CTA — keeps the onboarding flow visually
+            // consistent across providers (Bug B).
+            if !didStartDetection {
+                didStartDetection = true
+                return .detecting
+            }
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
@@ -142,11 +152,14 @@ actor CopilotConnector: ProviderConnector {
         await runner.cancel()
         activePhase = .none
         failedState = nil
+        didStartDetection = false
     }
 
     func clearFailure() async {
         failedState = nil
         activePhase = .none
+        // Re-arm so retry replays the detect intro.
+        didStartDetection = false
     }
 
     func confirmInstall() async {

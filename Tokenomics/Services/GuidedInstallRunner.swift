@@ -362,31 +362,52 @@ actor GuidedInstallRunner {
     /// We use `NSAppleScript` with `do shell script … with administrator privileges`
     /// so macOS shows its native auth dialog — no Terminal window opens.
     ///
+    /// **Why we write the shell command to a temp file instead of interpolating
+    /// it into the AppleScript source:** AppleScript string literals require any
+    /// embedded `"` or `\` to be escaped, and a single missed character produces
+    /// the macOS parser error "A unknown token can't go after this ...". By
+    /// passing only a generated temp-file path to AppleScript, the AppleScript
+    /// source is structurally static and cannot trigger that class of parser
+    /// error. The path is constructed from UUID + a fixed prefix inside
+    /// `FileManager.default.temporaryDirectory`, so it contains only safe ASCII.
+    ///
     /// The user can cancel the dialog; if they do, the stream emits `.failed`.
     ///
     /// - Returns: An `AsyncStream<InstallEvent>` terminating with `.completed` or `.failed`.
     func installHomebrew() async throws -> AsyncStream<InstallEvent> {
-        // The shell command that the Homebrew project officially publishes.
         let installerURL = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
-        let shellCommand = "/bin/bash -c \"$(curl -fsSL \(installerURL))\""
 
-        // Escape the shell command for AppleScript's string literal syntax — the
-        // installer one-liner contains both backslashes and double-quotes, which
-        // would otherwise terminate the AppleScript string early and produce a
-        // parser error ("A unknown token can't go after this ...").
-        // Order matters: backslashes first, then quotes.
-        let escapedShell = shellCommand
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
-        // Wrap in AppleScript admin elevation. This triggers the macOS native auth dialog.
-        let appleScriptSource = "do shell script \"\(escapedShell)\" with administrator privileges"
+        // Generated path — safe ASCII by construction. No AppleScript escaping needed.
+        let tempScript = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tokenomics-brew-install-\(UUID().uuidString).sh")
+        let scriptBody = """
+        #!/bin/bash
+        /bin/bash -c "$(curl -fsSL \(installerURL))"
+        """
 
         return AsyncStream<InstallEvent> { continuation in
             // AppleScript execution is synchronous — run it off the main thread.
             Task {
                 continuation.yield(.progress(nil))
                 Self.log.info("[GuidedInstallRunner] Starting Homebrew installer via AppleScript admin elevation")
+
+                // Write + chmod the temp installer script. Fail early if we can't.
+                do {
+                    try scriptBody.write(to: tempScript, atomically: true, encoding: .utf8)
+                    try FileManager.default.setAttributes(
+                        [.posixPermissions: 0o755],
+                        ofItemAtPath: tempScript.path
+                    )
+                } catch {
+                    continuation.yield(.failed("Could not prepare Homebrew installer: \(error.localizedDescription)"))
+                    continuation.finish()
+                    return
+                }
+
+                // Best-effort cleanup — the temp script has run by the time we get here.
+                defer { try? FileManager.default.removeItem(at: tempScript) }
+
+                let appleScriptSource = "do shell script \"\(tempScript.path)\" with administrator privileges"
 
                 var appleScriptError: NSDictionary?
                 guard let script = NSAppleScript(source: appleScriptSource) else {

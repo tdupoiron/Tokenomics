@@ -45,12 +45,14 @@ struct APIKeyPasteStep: View {
             secureInputRow
                 .padding(.top, Tokens.Spacing.s5) // 24pt breathing room
 
-            // "Lost your key? Generate a new one →" centered text link
+            // Re-open the provider's API keys page. Works for either case —
+            // user lost the page after copying their key, or never got one
+            // yet and wants to go back to grab one.
             if let url = helpURL {
                 Link(destination: url) {
-                    (Text("Lost your key? ")
+                    (Text("Need your key? ")
                         .foregroundColor(Tokens.Color.textMuted(scheme))
-                     + Text("Generate a new one →")
+                     + Text("Open \(providerName)'s API keys page →")
                         .foregroundColor(Tokens.Color.accent(scheme)))
                         .font(Tokens.Typography.Onboarding.small)
                 }
@@ -70,7 +72,12 @@ struct APIKeyPasteStep: View {
                     submitIfValid()
                 } label: {
                     if isSubmitting {
-                        ProgressView().controlSize(.small)
+                        // Branded spinner, sized to fit the button's primary
+                        // text height. Color matches the primary button's
+                        // foreground (`accentInk` — light cream on dark
+                        // button in light mode, cyan in dark mode) so it's
+                        // legible against the dark fill.
+                        CircularSpinner(size: 16, color: Tokens.Color.accentInk(scheme))
                     } else {
                         Text("Save & connect")
                     }
@@ -127,6 +134,16 @@ struct APIKeyPasteStep: View {
         guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         isSubmitting = true
         onSubmit(apiKey)
+
+        // Failsafe: if the connector's check doesn't transition us off this
+        // step within 5 seconds (bad key, network failure, polling died),
+        // reset isSubmitting so the user can re-enter and retry instead of
+        // sitting on a forever-spinning button. On success the parent
+        // re-renders to the connected screen and this state is moot.
+        Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            await MainActor.run { isSubmitting = false }
+        }
     }
 }
 

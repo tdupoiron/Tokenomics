@@ -58,6 +58,12 @@ actor ClaudeConnector: ProviderConnector {
 
     private var activePhase: ActivePhase = .none
 
+    /// Have we shown the "Checking your Mac" intro yet this session?
+    /// Used to display the DetectStep once before transitioning to the
+    /// needsAction CTA, so the flow feels consistent regardless of
+    /// whether Claude Code was already installed (Bug B).
+    private var didStartDetection = false
+
     // MARK: - Init
 
     init(provider: ClaudeProvider = ClaudeProvider()) {
@@ -134,6 +140,13 @@ actor ClaudeConnector: ProviderConnector {
         case .connected(let plan):
             return .connected(plan: plan)
         case .notInstalled, .installedNoAuth, .authExpired:
+            // Show "Checking your Mac" interstitial once before the
+            // needsAction CTA — keeps the onboarding flow visually
+            // consistent across providers (Bug B).
+            if !didStartDetection {
+                didStartDetection = true
+                return .detecting
+            }
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
@@ -169,11 +182,14 @@ actor ClaudeConnector: ProviderConnector {
         await runner.cancel()
         activePhase = .none
         failedState = nil
+        didStartDetection = false
     }
 
     func clearFailure() async {
         failedState = nil
         activePhase = .none
+        // Re-arm so retry replays the detect intro.
+        didStartDetection = false
     }
 
     func confirmInstall() async {

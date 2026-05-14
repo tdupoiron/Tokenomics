@@ -18,13 +18,55 @@ actor ClaudeProvider: UsageProvider {
     /// Track the last token we used so we can detect when Claude Code has refreshed
     private var lastUsedToken: String?
 
+    /// Cache the last validation result. checkConnection() now hits the API
+    /// to confirm the token actually works (not just that it exists in the
+    /// Keychain) — but the connector polls every 1.5s during onboarding and
+    /// we mustn't hammer Anthropic's usage endpoint. 5s is short enough to
+    /// stay responsive when the user finishes sign-in in Terminal, long
+    /// enough to amortise polling to ~one network call per cycle.
+    private var cachedConnectionState: (state: ProviderConnectionState, asOf: Date)?
+    private static let connectionCacheTTL: TimeInterval = 5.0
+
     func checkConnection() async -> ProviderConnectionState {
-        if KeychainService.readAccessToken() != nil {
-            let plan = SettingsService.cachedUsage(for: .claude)?.snapshot.planLabel ?? "Pro"
-            return .connected(plan: plan)
+        // No token in Keychain at all — drop any stale cache and report the
+        // installation state. A fresh sign-in attempt should re-validate
+        // from scratch, not see a remembered "expired" verdict.
+        guard KeychainService.readAccessToken() != nil else {
+            cachedConnectionState = nil
+            if isClaudeCodeInstalled() { return .installedNoAuth }
+            return .notInstalled
         }
-        if isClaudeCodeInstalled() { return .installedNoAuth }
-        return .notInstalled
+
+        // Token exists — but is it still valid? Reuse the cached validation
+        // result if it's recent enough (see connectionCacheTTL rationale).
+        if let cached = cachedConnectionState,
+           Date().timeIntervalSince(cached.asOf) < Self.connectionCacheTTL {
+            return cached.state
+        }
+
+        // Validate by attempting a real fetch. The previous implementation
+        // returned .connected purely on token presence, which made the
+        // onboarding "connected" screen flash green even when fetchUsage
+        // would 401 a moment later (Bug I). We now only declare .connected
+        // when the fetch actually succeeds, and surface .authExpired on 401
+        // so the connector routes back to the Terminal re-auth path.
+        let state: ProviderConnectionState
+        do {
+            let snapshot = try await fetchUsage()
+            state = .connected(plan: snapshot.planLabel)
+        } catch let error as AppError where error.isTokenExpired {
+            state = .authExpired
+        } catch {
+            // Network blip or transient failure — don't lock the user out of
+            // onboarding. Fall back to cached usage's plan label if any,
+            // otherwise leave it blank (Bug J: never default to "Pro" — that
+            // misrepresents Max and Free users alike).
+            let plan = SettingsService.cachedUsage(for: .claude)?.snapshot.planLabel ?? ""
+            state = .connected(plan: plan)
+        }
+
+        cachedConnectionState = (state, Date())
+        return state
     }
 
     func fetchUsage() async throws -> ProviderUsageSnapshot {

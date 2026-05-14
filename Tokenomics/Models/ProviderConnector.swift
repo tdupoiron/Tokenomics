@@ -268,6 +268,16 @@ protocol ProviderConnector: Actor {
     /// Default no-op returns `false` — only `APIKeyConnector` implements this.
     func submitAPIKey(_ key: String) async -> Bool
 
+    /// User tapped Back on a step that has a meaningful "previous step" within
+    /// the connector's sub-flow (rather than backing out to the chooser).
+    /// Connectors should transition `activePhase` to the prior phase. The
+    /// polling loop will pick up the new state on its next tick and the UI
+    /// will route to the correct previous screen.
+    ///
+    /// Default no-op — connectors with linear or non-rewindable flows can
+    /// leave this and rely on the chooser-level Back affordance.
+    func goBackOneStep() async
+
     /// Display labels for each of the four stepper segments shown across the top of
     /// every connector screen. Must be `nonisolated` so `ConnectorViewModel` (on
     /// MainActor) can read it without an `await`.
@@ -295,6 +305,10 @@ extension ProviderConnector {
 
     /// Default no-op — only `APIKeyConnector` saves keys.
     func submitAPIKey(_ key: String) async -> Bool { false }
+
+    /// Default no-op — connectors override this only if their sub-flow has
+    /// meaningful intra-flow back navigation.
+    func goBackOneStep() async {}
 
     /// Clears any cached install artifacts (e.g., npm cache) so the next install
     /// attempt starts clean. Called before retrying after a `.permissionDenied` error.

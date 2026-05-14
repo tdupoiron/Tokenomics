@@ -222,6 +222,19 @@ struct DetectStep: View {
             .padding(.horizontal, Tokens.Spacing.s5)
 
             Spacer()
+
+            // Escape hatch: if a connector gets stuck waiting (e.g. Cursor's
+            // poll-for-bundle never sees the install), the user MUST have a
+            // way out. Back link + Cancel button both route to onBack so
+            // either affordance recovers the user.
+            if let onBack {
+                WindowFooter {
+                    BackLink(action: onBack)
+                } trailing: {
+                    Button("Cancel", action: onBack)
+                        .buttonStyle(.tokenTextLink)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

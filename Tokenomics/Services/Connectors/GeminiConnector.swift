@@ -121,8 +121,16 @@ actor GeminiConnector: ProviderConnector {
             }
             return .detecting
         case .installedNoAuth, .authExpired:
-            // Prereqs are all there — the only thing left is sign-in. The
-            // .needsAction CTA is honest in this case ("Sign in with Google").
+            // Prereqs are all there — only sign-in remains. Still show the
+            // "Checking your Mac" interstitial once so the user gets the
+            // same coherent flow regardless of what was already installed
+            // (Bug B). didStartDetection serves double duty: it prevents
+            // the install chain from re-spawning AND prevents this
+            // interstitial from looping.
+            if !didStartDetection {
+                didStartDetection = true
+                return .detecting
+            }
             return .needsAction
         case .unavailable(let reason):
             return .failed(.unknown(reason))
