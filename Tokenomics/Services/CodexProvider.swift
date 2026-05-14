@@ -48,12 +48,11 @@ actor CodexProvider: UsageProvider {
     }
 
     func fetchUsage() async throws -> ProviderUsageSnapshot {
+        // No sessions yet (user signed in but hasn't run codex) is a legitimate
+        // zero-usage state, not an error. mapToSnapshot handles all-nil data
+        // gracefully — zero utilization, "No active session" sublabel.
         let sessionData = findLatestSessionData()
-
-        guard let sessionData else {
-            throw AppError.decodingFailed(underlying: CodexError.noSessionData)
-        }
-
+            ?? SessionData(tokenCount: nil, rateLimits: nil)
         return mapToSnapshot(sessionData)
     }
 
@@ -167,7 +166,10 @@ actor CodexProvider: UsageProvider {
         let commonPaths = [
             "/usr/local/bin/codex",
             "\(NSHomeDirectory())/.local/bin/codex",
-            "/opt/homebrew/bin/codex"
+            "/opt/homebrew/bin/codex",
+            // Also check the Tokenomics per-user npm prefix (~/.tokenomics-cli/bin/)
+            // so detection succeeds after GuidedInstallRunner installs the CLI.
+            GuidedInstallRunner.npmBinDir.appendingPathComponent("codex").path
         ]
         return commonPaths.contains { FileManager.default.fileExists(atPath: $0) }
     }

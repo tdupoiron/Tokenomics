@@ -21,12 +21,72 @@ struct TokenomicsApp: App {
             PopoverView(viewModel: viewModel, updaterService: updaterService)
                 .frame(width: popoverWidth)
         } label: {
+            // First-launch routing + polling kickoff live inside MenuBarLabel so
+            // the view's environment (openWindow) is available. startPolling()
+            // is gated on hasCompletedOnboarding inside the view model.
             MenuBarLabel(viewModel: viewModel)
-                .onAppear {
-                    viewModel.startPolling()
-                }
         }
         .menuBarExtraStyle(.window)
+
+        // MARK: - Onboarding Window
+
+        onboardingWindow
+    }
+
+    /// Onboarding window with restoration disabled on macOS 15+.
+    ///
+    /// `@SceneBuilder` doesn't support `if #available`, so the conditional is
+    /// applied in a plain function that returns `any Scene`. On macOS 14 the
+    /// belt is the `.accessory` activation policy set in `applicationDidFinishLaunching`.
+    private var onboardingWindow: some Scene {
+        onboardingScene()
+    }
+
+    private func onboardingScene() -> some Scene {
+        let base = WindowGroup(id: "onboarding") {
+            OnboardingWindowRoot(viewModel: viewModel)
+        }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 720, height: 560)
+        .windowStyle(.titleBar)
+
+        if #available(macOS 15.0, *) {
+            return base.restorationBehavior(.disabled)
+        }
+        return base
+    }
+}
+
+// MARK: - Onboarding window root
+
+/// Wraps ConnectorContainer for the onboarding WindowGroup.
+/// Switches NSApplication's activation policy to `.regular` so the window is
+/// focusable (LSUIElement is still `true` — no Dock icon except while this view
+/// is visible), then restores `.accessory` when it disappears.
+struct OnboardingWindowRoot: View {
+    @ObservedObject var viewModel: UsageViewModel
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        ConnectorContainer(viewModel: viewModel) {
+            // Onboarding finished. Close the window and bring the menu bar
+            // back into focus so the user can click the Tokenomics icon to
+            // see their usage. (SwiftUI's MenuBarExtra doesn't expose a
+            // public API to *open* the popover programmatically — the user
+            // has to click the icon themselves. Activating the app gives the
+            // icon visual focus in case the menu bar was occluded.)
+            NSApp.activate(ignoringOtherApps: true)
+            dismissWindow(id: "onboarding")
+        }
+        .frame(width: 720, height: 560)
+        .background(Tokens.DynamicColor.bg.ignoresSafeArea())
+        .onAppear {
+            NSApplication.shared.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        .onDisappear {
+            NSApplication.shared.setActivationPolicy(.accessory)
+        }
     }
 }
 
@@ -34,6 +94,10 @@ struct TokenomicsApp: App {
 /// which fires incorrectly in MenuBarExtra and causes performance issues.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Belt-and-suspenders: ensure we start as a menu-bar agent even if SwiftUI
+        // auto-restored an onboarding window from a previous session.
+        NSApplication.shared.setActivationPolicy(.accessory)
+
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleGetURL(_:withReplyEvent:)),
@@ -74,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// Smart mode picks the worst-of-N; pinned mode shows the user's choice.
 struct MenuBarLabel: View {
     @ObservedObject var viewModel: UsageViewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         HStack(spacing: 0) {
@@ -98,6 +163,16 @@ struct MenuBarLabel: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(viewModel.menuBarTooltip)
         .help(viewModel.menuBarTooltip)
+        .onAppear {
+            // First-launch users go through the guided flow before polling so
+            // the keychain / cross-app TCC prompts come from a known UI moment
+            // (PermissionsStep) instead of firing blind on app launch.
+            if !viewModel.hasCompletedOnboarding {
+                openWindow(id: "onboarding")
+            }
+            // Always-safe call — startPolling no-ops when not yet onboarded.
+            viewModel.startPolling()
+        }
     }
 
     // MARK: - Ring + Percentage
@@ -125,7 +200,18 @@ struct MenuBarLabel: View {
                 .foregroundStyle(Color.secondary)
                 .padding(.leading, 6)
         } else {
-            Text("—")
+            // No snapshot yet (loading or just-connected with no usage data) —
+            // show empty rings rather than a bare "—". The renderer always draws
+            // the tracks; pace dots are gated on pace > 0 so they're naturally
+            // omitted when the window hasn't started elapsing.
+            Image(nsImage: MenuBarRingsRenderer.image(
+                fiveHourFraction: 0,
+                sevenDayFraction: 0,
+                fiveHourPace: 0,
+                sevenDayPace: 0
+            ))
+
+            Text("0%")
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(Color.secondary)

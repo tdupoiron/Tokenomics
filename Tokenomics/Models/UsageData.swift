@@ -36,41 +36,13 @@ struct UsageData: Decodable, Sendable {
 
 struct UsagePeriod: Decodable, Sendable {
     let utilization: Double
-    let resetsAt: Date
+    /// Optional because Anthropic returns `null` for periods that have no
+    /// active reset window yet (e.g. `seven_day_sonnet` at zero usage).
+    let resetsAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case utilization
         case resetsAt = "resets_at"
-    }
-
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        return formatter
-    }()
-
-    /// Formatted time remaining until reset
-    var timeUntilReset: String {
-        let interval = resetsAt.timeIntervalSinceNow
-        guard interval > 0 else { return "Resetting now" }
-
-        let hours = Int(interval) / 3600
-        let minutes = (Int(interval) % 3600) / 60
-
-        if hours >= 24 {
-            let calendar = Calendar.current
-            if calendar.isDateInToday(resetsAt) {
-                return "Resets today"
-            } else if calendar.isDateInTomorrow(resetsAt) {
-                return "Resets tomorrow"
-            } else {
-                return "Resets \(Self.dayFormatter.string(from: resetsAt))"
-            }
-        } else if hours > 0 {
-            return "Resets in \(hours)h \(minutes)m"
-        } else {
-            return "Resets in \(minutes)m"
-        }
     }
 }
 

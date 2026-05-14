@@ -10,6 +10,9 @@ struct PopoverView: View {
     @State private var showingGeminiPlanSetup = false
     @AppStorage("textSize") private var textSizeRaw: String = TextSize.compact.rawValue
     private var textSize: TextSize { TextSize(rawValue: textSizeRaw) ?? .compact }
+
+    @Environment(\.openWindow) private var openWindow
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -29,7 +32,10 @@ struct PopoverView: View {
             } else if viewModel.showSettings {
                 settingsView
             } else if !viewModel.hasCompletedOnboarding {
-                OnboardingView(viewModel: viewModel)
+                // First-launch users: show a lightweight card that opens the
+                // real onboarding window. The window persists across app-switches
+                // (unlike this popover, which dismisses on focus loss).
+                onboardingLauncherCard
             } else {
                 mainContent
             }
@@ -269,40 +275,17 @@ struct PopoverView: View {
                 .scaledFont(.caption)
                 .fontWeight(.semibold)
 
-            if provider.usesPATAuth {
-                Button("Reconnect") {
-                    viewModel.showAIConnections = true
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Text("Update your token in AI Connections.")
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else if provider.hasAutoAuth {
-                Button("Open \(provider.tabLabel)") {
-                    provider.openLoginInTerminal()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Text("Sign in to \(provider.displayName),\nthen click Refresh.")
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else {
-                Button("Sign In") {
-                    provider.openLoginInTerminal()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Text("Opens Terminal to reconnect.\nTokenomics will detect it automatically.")
-                    .scaledFont(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+            Button("Reconnect") {
+                OnboardingTarget.shared.preselected = provider
+                openWindow(id: "onboarding")
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+            Text("Tap to walk through reconnecting.\nTokenomics will detect it automatically.")
+                .scaledFont(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(24)
     }
@@ -335,7 +318,8 @@ struct PopoverView: View {
                 .multilineTextAlignment(.center)
 
             Button("Set Up \(provider.tabLabel)") {
-                viewModel.showAIConnections = true
+                OnboardingTarget.shared.preselected = provider
+                openWindow(id: "onboarding")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
@@ -470,6 +454,15 @@ struct PopoverView: View {
                 Divider().padding(.horizontal, 16)
 
                 settingsNavRow(
+                    icon: "plus.circle",
+                    label: "Setup providers\u{2026}"
+                ) {
+                    openWindow(id: "onboarding")
+                }
+
+                Divider().padding(.horizontal, 16)
+
+                settingsNavRow(
                     icon: "bell",
                     label: "Notifications",
                     detail: viewModel.notificationsSubtitle
@@ -576,6 +569,66 @@ struct PopoverView: View {
                 .padding(.vertical, 9)
             }
         }
+    }
+
+    // MARK: - Onboarding Launcher Card
+
+    /// Shown in the popover before the user completes setup.
+    /// Tapping the button opens the persistent onboarding window.
+    ///
+    /// The help banner style matches mockup .popover-help (lines 703–712):
+    ///   bg accent@8%, 11×16 padding, 12.5px text-muted copy, accent link.
+    private var onboardingLauncherCard: some View {
+        let connected = viewModel.connectedProviders.count
+        let total = viewModel.installedProviders.count + viewModel.connectedProviders.count
+        let subtitle: String = connected == 0
+            ? "Connect your AI coding tools to start tracking usage."
+            : "\(connected) of \(max(connected, total)) providers connected."
+
+        return VStack(spacing: 10) {
+            Image(systemName: "link.badge.plus")
+                .font(.system(size: 26))
+                .foregroundStyle(Tokens.Color.brand600)
+                .padding(.bottom, 2)
+
+            Text("Set up your providers")
+                .font(Tokens.Typography.App.sectionTitle)
+                .foregroundStyle(Tokens.DynamicColor.text)
+
+            Text(subtitle)
+                .font(Tokens.Typography.App.caption)
+                .foregroundStyle(Tokens.DynamicColor.textMuted)
+                .multilineTextAlignment(.center)
+
+            // Help banner inline — same accent@8% tint as popover-help
+            HStack(spacing: 6) {
+                Text("Need help connecting?")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Tokens.DynamicColor.textMuted)
+                Spacer()
+                Button("Open the guided setup →") {
+                    openWindow(id: "onboarding")
+                }
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(Tokens.Color.brand600)
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .background(Tokens.Color.brand600.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm))
+            .padding(.top, 4)
+
+            Button("Skip for now") {
+                viewModel.completeOnboarding()
+            }
+            .buttonStyle(.plain)
+            .font(Tokens.Typography.App.tiny)
+            .foregroundStyle(Tokens.DynamicColor.textSubtle)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Settings Helpers

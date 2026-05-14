@@ -148,6 +148,42 @@ final class UsageDataTests: XCTestCase {
         XCTAssertEqual(data.fiveHour.utilization, 0.5, accuracy: 0.001)
     }
 
+    /// Regression: Anthropic added new fields and made `seven_day_sonnet.resets_at`
+    /// nullable in May 2026. The exact payload below crashed decoding in beta-2
+    /// and surfaced as the "Session expired" popover. The decoder must (a) accept
+    /// `resets_at: null` on existing periods and (b) ignore the new top-level
+    /// codename keys (`seven_day_omelette`, `tangelo`, `iguana_necktie`,
+    /// `omelette_promotional`, `extra_usage.currency`).
+    func testUsageData_decodesMay2026Payload() throws {
+        let json = """
+        {
+            "five_hour":{"utilization":7.0,"resets_at":"2026-05-09T00:00:00.810100+00:00"},
+            "seven_day":{"utilization":4.0,"resets_at":"2026-05-11T06:00:00.810118+00:00"},
+            "seven_day_oauth_apps":null,
+            "seven_day_opus":null,
+            "seven_day_sonnet":{"utilization":0.0,"resets_at":null},
+            "seven_day_cowork":null,
+            "seven_day_omelette":{"utilization":0.0,"resets_at":null},
+            "tangelo":null,
+            "iguana_necktie":null,
+            "omelette_promotional":null,
+            "extra_usage":{"is_enabled":false,"monthly_limit":null,"used_credits":null,"utilization":null,"currency":null}
+        }
+        """.data(using: .utf8)!
+
+        let decoder = makeDecoder()
+        let data = try decoder.decode(UsageData.self, from: json)
+
+        XCTAssertEqual(data.fiveHour.utilization, 7.0, accuracy: 0.001)
+        XCTAssertNotNil(data.fiveHour.resetsAt)
+        XCTAssertEqual(data.sevenDay.utilization, 4.0, accuracy: 0.001)
+        XCTAssertEqual(data.sevenDaySonnet?.utilization, 0.0)
+        XCTAssertNil(data.sevenDaySonnet?.resetsAt,
+            "resets_at can be null — must decode as nil, not crash")
+        XCTAssertEqual(data.inferredPlan, .max,
+            "extra_usage present (even if disabled) → Max plan")
+    }
+
     /// Malformed date string must throw rather than silently succeed
     func testUsagePeriod_malformedDate_throws() {
         let json = """

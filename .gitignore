@@ -31,3 +31,7 @@ docs/roadmap.md
 # Local tooling caches
 .wrangler/
 .claude/
+
+# Embedded Node binary — downloaded by scripts/fetch-node.sh at build time.
+# Not committed because it's ~30 MB and reproducible from the download script.
+Tokenomics/Resources/embedded-node/

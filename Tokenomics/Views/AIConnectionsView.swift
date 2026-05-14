@@ -1,20 +1,26 @@
 import SwiftUI
 
-/// Settings sub-screen showing all providers grouped by category with connect/disconnect controls
+/// Settings sub-screen showing all providers grouped by category with connect/disconnect controls.
+///
+/// Connect / Re-connect / Sign In taps for CLI-based providers (Claude, Codex, Gemini, Cursor)
+/// open the guided onboarding window pre-routed to that provider, so users get the full
+/// step-by-step flow without ever seeing a Terminal window.
 struct AIConnectionsView: View {
     @ObservedObject var viewModel: UsageViewModel
     @State private var geminiPlan: GeminiPlan = SettingsService.geminiPlan ?? .free
-    @State private var showingPATEntry = false
     @State private var patText = ""
     @State private var apiKeyText = ""
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.tokenomicsTextSize) private var textSize
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
             header
 
             Divider()
+
+            helpBanner
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -49,6 +55,41 @@ struct AIConnectionsView: View {
         }
         .sheet(item: $viewModel.apiKeyEntryProvider) { _ in
             apiKeyEntrySheet
+        }
+    }
+
+    // MARK: - Help Banner
+
+    /// Quiet recovery affordance for users who land on Connections looking
+    /// to add a provider but want the guided walk-through. Sits above the
+    /// scroll so it stays visible regardless of list length.
+    ///
+    /// mockup .popover-help (lines 703–712):
+    ///   bg accent@8%, border-bottom 1px border, padding 11×16, 12.5px, text-muted link
+    private var helpBanner: some View {
+        HStack(spacing: Tokens.Spacing.s1 + 2) { // 6pt
+            Text("Need help connecting a provider?")
+                .font(Tokens.Typography.App.caption)
+                .foregroundStyle(Tokens.Color.textMuted(colorScheme))
+
+            Spacer()
+
+            Button {
+                openWindow(id: "onboarding")
+            } label: {
+                Text("Open the guided setup →")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Tokens.Color.brand600)  // always brand-600 (accent is fine too; brand-600 matches mockup .text-link color)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Tokens.Spacing.s4) // 16pt — mockup padding: 11px 16px
+        .padding(.vertical, 11)                   // 11pt — mockup padding-vertical: 11px
+        .background(Tokens.Color.brand600.opacity(0.08)) // mockup: accent@8%
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Tokens.Color.border(colorScheme))
+                .frame(height: 1)
         }
     }
 
@@ -211,7 +252,7 @@ struct AIConnectionsView: View {
             }
         }
         .opacity(isHidden ? 0.7 : 1)
-        .sheet(isPresented: $showingPATEntry) {
+        .sheet(isPresented: $viewModel.copilotPATEntryRequested) {
             patEntrySheet
         }
     }
@@ -224,32 +265,25 @@ struct AIConnectionsView: View {
             Text("Coming Soon")
                 .scaledFont(.caption2)
                 .foregroundStyle(.tertiary)
-        } else if provider.usesAPIKeyAuth {
-            smallActionButton("Connect") { viewModel.apiKeyEntryProvider = provider }
-        } else if provider == .copilot {
-            // Copilot has its own PAT sheet
-            switch connection {
-            case .notInstalled, .installedNoAuth:
-                smallActionButton("Connect") { showingPATEntry = true }
-                    .help("Enter a GitHub Personal Access Token")
-            case .authExpired:
-                smallActionButton("Reconnect") { showingPATEntry = true }
-                    .help("Enter a new GitHub Personal Access Token")
-            default:
-                EmptyView()
-            }
         } else {
-            // CLI-based providers
+            // All connectable providers open the guided onboarding window pre-routed
+            // to that provider's flow (CLI, API key, and OAuth alike).
             switch connection {
             case .notInstalled:
-                smallActionButton("Install") { provider.openInstallInTerminal() }
-                    .help("Opens Terminal to install \(provider.displayName)")
+                smallActionButton("Connect") {
+                    OnboardingTarget.shared.preselected = provider
+                    openWindow(id: "onboarding")
+                }
             case .installedNoAuth:
-                smallActionButton("Sign In") { provider.openLoginInTerminal() }
-                    .help("Opens Terminal to sign in")
+                smallActionButton("Sign In") {
+                    OnboardingTarget.shared.preselected = provider
+                    openWindow(id: "onboarding")
+                }
             case .authExpired:
-                smallActionButton("Fix") { provider.openLoginInTerminal() }
-                    .help("Opens Terminal to reconnect")
+                smallActionButton("Reconnect") {
+                    OnboardingTarget.shared.preselected = provider
+                    openWindow(id: "onboarding")
+                }
             default:
                 EmptyView()
             }
@@ -347,7 +381,7 @@ struct AIConnectionsView: View {
 
                 Button("Cancel") {
                     patText = ""
-                    showingPATEntry = false
+                    viewModel.copilotPATEntryRequested = false
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -357,7 +391,7 @@ struct AIConnectionsView: View {
                     guard !trimmed.isEmpty else { return }
                     CopilotKeychainService.savePAT(trimmed)
                     patText = ""
-                    showingPATEntry = false
+                    viewModel.copilotPATEntryRequested = false
                     viewModel.redetectProviders()
                     viewModel.refresh()
                 }
