@@ -27,6 +27,8 @@ Packages/
 
 # Internal planning — not meant to ship
 docs/roadmap.md
+docs/web-companion-plan.md
+docs/web-companion-build-spec.md
 
 # Local tooling caches
 .wrangler/
