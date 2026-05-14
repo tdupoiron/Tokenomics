@@ -165,8 +165,8 @@ struct ConnectorContainer: View {
                 providerId: .elevenlabs,
                 provider: ElevenLabsProvider()
             )
-        case .midjourney, .suno, .udio:
-            // Coming Soon — picker disables these rows. Defensive fallback.
+        case .chatgpt, .midjourney, .suno, .udio:
+            // Coming Soon / browser-session providers — picker disables these rows. Defensive fallback.
             return ClaudeConnector()
         }
     }
