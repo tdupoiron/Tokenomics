@@ -92,7 +92,7 @@ body {
   width: 160px;
   gap: 5px;
   padding: 6px 12px;
-  color: var(--widget-fg);
+  color: var(--widget-name);
   background: var(--widget-surface);
   box-shadow: var(--shadow-sm);
 }
@@ -391,7 +391,7 @@ body {
   border: 0;
   border-radius: var(--r-xs);
   background: transparent;
-  color: var(--widget-fg);
+  color: var(--widget-name);
   font-family: inherit;
   font-size: 12px;
   font-weight: 400;

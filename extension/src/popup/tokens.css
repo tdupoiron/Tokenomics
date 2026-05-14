@@ -61,7 +61,7 @@
      These drive the popup so its visual language reads as a Tokenomics
      widget surface, not a generic browser popup. */
   --widget-bg: linear-gradient(170deg, #f3efe5 1.6%, #e6e0d4 84.5%);
-  --widget-fg: #2f84bf; /* shortColor / brand-600 */
+  --widget-fg: #2f84bf; /* shortColor / brand-600 — utilization numbers + fills */
   --widget-fg-long: #56a2d6; /* longColor / brand-300 */
   --widget-label: rgba(47, 132, 191, 0.67);
   --widget-track: rgba(40, 97, 149, 0.12);
@@ -69,6 +69,9 @@
   --widget-divider: rgba(40, 97, 149, 0.16);
   --widget-hover: rgba(40, 97, 149, 0.08);
   --widget-surface: #ffffff;
+  /* Provider/setting names — tracks the provider icon color so the
+     label and icon read as one unit. Light: d.blue. Dark: white. */
+  --widget-name: #2f84bf;
 }
 
 [data-theme='dark'] {
@@ -88,7 +91,7 @@
   --danger: #e27777;
 
   --widget-bg: linear-gradient(170deg, #0e334d 10.3%, #051928 88.1%);
-  --widget-fg: #75cbf5; /* brand-200 */
+  --widget-fg: #75cbf5; /* brand-200 — utilization numbers + fills */
   --widget-fg-long: #3389c7; /* brand-500 */
   --widget-label: rgba(117, 203, 245, 0.5);
   --widget-track: rgba(75, 166, 210, 0.25);
@@ -96,4 +99,5 @@
   --widget-divider: rgba(117, 203, 245, 0.2);
   --widget-hover: rgba(117, 203, 245, 0.08);
   --widget-surface: #163f5c;
+  --widget-name: #ffffff;
 }

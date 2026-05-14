@@ -16,7 +16,7 @@ export interface ProviderMeta {
 }
 
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
-  claude: { tabLabel: 'Claude', displayName: 'Anthropic', iconBase: 'Claude' },
+  claude: { tabLabel: 'Claude', displayName: 'Claude', iconBase: 'Claude' },
   codex: { tabLabel: 'OpenAI', displayName: 'OpenAI', iconBase: 'Codex' },
   gemini: { tabLabel: 'Google AI', displayName: 'Google AI', iconBase: 'Gemini' },
   copilot: { tabLabel: 'Copilot', displayName: 'GitHub Copilot', iconBase: 'Copilot' },
