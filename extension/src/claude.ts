@@ -106,7 +106,10 @@ function makeWindow(
   if (!raw || typeof raw.utilization !== 'number') return null;
   return {
     label,
-    utilization: Math.max(0, raw.utilization * 100),
+    // claude.ai's /usage endpoint returns utilization already as a percentage
+    // (0–100, e.g. `7` for 7%) — the plan doc's `0.36` example was wrong.
+    // No multiplier; just guard against negative and absurd values.
+    utilization: Math.max(0, raw.utilization),
     resetsAt: raw.resets_at,
     windowDurationSec: durationSec,
   };
