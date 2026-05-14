@@ -8,7 +8,9 @@ import {
   type ProviderUsageSnapshot,
 } from '../snapshot';
 import {
+  getChatGPTSnapshot,
   getClaudeSnapshot,
+  getMidjourneySnapshot,
   getPinnedProvider,
   getSelectedTab,
   setPinnedProvider,
@@ -24,10 +26,13 @@ import { UsageBar } from './components/UsageBar';
 const DEFAULT_TAB: ProviderId = PROVIDERS[0];
 
 /**
- * Phase 1 visible providers — only Claude has a live reader. Phase 1.5
- * will lift this to a derived value once additional snapshot keys exist.
+ * Providers with a live reader. As phases land, this grows — Phase 1 was
+ * just Claude; Phase 1.5 adds ChatGPT (lives in the `codex` tab since it
+ * represents the OpenAI account); Phase 4.5 adds Midjourney.
  */
-const VISIBLE_PROVIDERS: readonly ProviderId[] = ['claude'];
+const VISIBLE_PROVIDERS: readonly ProviderId[] = ['claude', 'codex', 'midjourney'];
+
+type SnapshotMap = Partial<Record<ProviderId, ProviderUsageSnapshot>>;
 
 function applyTheme() {
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -37,7 +42,7 @@ function applyTheme() {
 function App() {
   const [selected, setSelected] = useState<ProviderId>(DEFAULT_TAB);
   const [pinned, setPinned] = useState<ProviderId | null>(null);
-  const [snapshot, setSnapshot] = useState<ProviderUsageSnapshot | null>(null);
+  const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Initial load from storage.
@@ -46,7 +51,15 @@ function App() {
       if (stored) setSelected(stored);
     });
     void getPinnedProvider().then(setPinned);
-    void getClaudeSnapshot().then(setSnapshot);
+    void Promise.all([getClaudeSnapshot(), getChatGPTSnapshot(), getMidjourneySnapshot()]).then(
+      ([claude, chatgpt, midjourney]) => {
+        setSnapshots({
+          ...(claude ? { claude } : {}),
+          ...(chatgpt ? { codex: chatgpt } : {}),
+          ...(midjourney ? { midjourney } : {}),
+        });
+      },
+    );
   }, []);
 
   // Live updates from the service worker.
@@ -57,8 +70,16 @@ function App() {
     ) => {
       if (area !== 'local') return;
       if ('claudeSnapshot' in changes) {
-        const next = changes['claudeSnapshot']?.newValue;
-        setSnapshot((next as ProviderUsageSnapshot | undefined) ?? null);
+        const next = changes['claudeSnapshot']?.newValue as ProviderUsageSnapshot | undefined;
+        setSnapshots((prev) => ({ ...prev, claude: next ?? undefined }));
+      }
+      if ('chatgptSnapshot' in changes) {
+        const next = changes['chatgptSnapshot']?.newValue as ProviderUsageSnapshot | undefined;
+        setSnapshots((prev) => ({ ...prev, codex: next ?? undefined }));
+      }
+      if ('midjourneySnapshot' in changes) {
+        const next = changes['midjourneySnapshot']?.newValue as ProviderUsageSnapshot | undefined;
+        setSnapshots((prev) => ({ ...prev, midjourney: next ?? undefined }));
       }
     };
     browser.storage.onChanged.addListener(handler);
@@ -101,20 +122,21 @@ function App() {
   };
 
   const handleSettings = () => {
-    console.log('[tokenomics] settings requested (options page lands later)');
+    void browser.runtime.openOptionsPage();
   };
 
-  const showLiveClaude = selected === 'claude' && snapshot !== null;
-  const planLabel = showLiveClaude ? snapshot.planLabel : undefined;
-  const lastSynced = showLiveClaude ? new Date(snapshot.capturedAt) : null;
+  const currentSnapshot = snapshots[selected];
+  const planLabel = currentSnapshot?.planLabel || undefined;
+  const estimated = currentSnapshot?.estimated === true;
+  const lastSynced = currentSnapshot ? new Date(currentSnapshot.capturedAt) : null;
 
   return (
     <div class="popup">
-      <Header planLabel={planLabel} />
+      <Header planLabel={planLabel} estimated={estimated} />
       <ProviderTabBar selected={selected} onSelect={handleSelectTab} />
 
       <main class="popup__body">
-        {showLiveClaude ? renderUsageBars(snapshot) : <EmptyState provider={selected} />}
+        {currentSnapshot ? renderUsageBars(currentSnapshot) : <EmptyState provider={selected} />}
       </main>
 
       <SyncFooter

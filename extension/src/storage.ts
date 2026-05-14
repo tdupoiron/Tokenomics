@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import type { ChatGPTMessageEvent, ChatGPTPlan } from './chatgpt';
 import { isProviderId, type ProviderId } from './types';
 import type { AuthState, BackoffState, ProviderUsageSnapshot } from './snapshot';
 
@@ -9,6 +10,13 @@ const KEYS = {
   claudeSnapshot: 'claudeSnapshot',
   claudeAuth: 'claudeAuth',
   claudeBackoff: 'claudeBackoff',
+  chatgptSnapshot: 'chatgptSnapshot',
+  chatgptEvents: 'chatgptEvents',
+  chatgptPlanAuto: 'chatgptPlanAuto',
+  chatgptPlanOverride: 'chatgptPlanOverride',
+  midjourneySnapshot: 'midjourneySnapshot',
+  midjourneyAuth: 'midjourneyAuth',
+  midjourneyBackoff: 'midjourneyBackoff',
 } as const;
 
 const ORG_ID_TTL_MS = 24 * 60 * 60 * 1000;
@@ -87,11 +95,78 @@ export async function setClaudeAuth(state: AuthState): Promise<void> {
   await browser.storage.local.set({ [KEYS.claudeAuth]: state });
 }
 
-// ── Backoff (rate-limit) state ──────────────────────────────
+// ── ChatGPT snapshot (derived from counter) ─────────────────
 
-export async function getBackoff(): Promise<BackoffState | null> {
-  const result = await browser.storage.local.get(KEYS.claudeBackoff);
-  const raw = result[KEYS.claudeBackoff];
+export async function getChatGPTSnapshot(): Promise<ProviderUsageSnapshot | null> {
+  const result = await browser.storage.local.get(KEYS.chatgptSnapshot);
+  const raw = result[KEYS.chatgptSnapshot];
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as ProviderUsageSnapshot;
+}
+
+export async function setChatGPTSnapshot(snapshot: ProviderUsageSnapshot): Promise<void> {
+  await browser.storage.local.set({ [KEYS.chatgptSnapshot]: snapshot });
+}
+
+// ── ChatGPT counter (rolling log of message events) ─────────
+
+export async function getChatGPTEvents(): Promise<ChatGPTMessageEvent[]> {
+  const result = await browser.storage.local.get(KEYS.chatgptEvents);
+  const raw = result[KEYS.chatgptEvents];
+  if (!Array.isArray(raw)) return [];
+  return raw as ChatGPTMessageEvent[];
+}
+
+export async function setChatGPTEvents(events: ChatGPTMessageEvent[]): Promise<void> {
+  await browser.storage.local.set({ [KEYS.chatgptEvents]: events });
+}
+
+// ── ChatGPT plan (auto-detected + manual override) ──────────
+
+export async function getChatGPTPlanAuto(): Promise<ChatGPTPlan> {
+  const result = await browser.storage.local.get(KEYS.chatgptPlanAuto);
+  const raw = result[KEYS.chatgptPlanAuto];
+  return isChatGPTPlan(raw) ? raw : 'unknown';
+}
+
+export async function setChatGPTPlanAuto(plan: ChatGPTPlan): Promise<void> {
+  await browser.storage.local.set({ [KEYS.chatgptPlanAuto]: plan });
+}
+
+export async function getChatGPTPlanOverride(): Promise<ChatGPTPlan | null> {
+  const result = await browser.storage.local.get(KEYS.chatgptPlanOverride);
+  const raw = result[KEYS.chatgptPlanOverride];
+  return isChatGPTPlan(raw) && raw !== 'unknown' ? raw : null;
+}
+
+export async function setChatGPTPlanOverride(plan: ChatGPTPlan | null): Promise<void> {
+  if (plan === null || plan === 'unknown') {
+    await browser.storage.local.remove(KEYS.chatgptPlanOverride);
+  } else {
+    await browser.storage.local.set({ [KEYS.chatgptPlanOverride]: plan });
+  }
+}
+
+/** Resolves the effective plan: manual override wins; otherwise auto. */
+export async function getChatGPTPlanEffective(): Promise<ChatGPTPlan> {
+  const [override, auto] = await Promise.all([
+    getChatGPTPlanOverride(),
+    getChatGPTPlanAuto(),
+  ]);
+  return override ?? auto;
+}
+
+function isChatGPTPlan(value: unknown): value is ChatGPTPlan {
+  return value === 'free' || value === 'plus' || value === 'pro' || value === 'team' || value === 'unknown';
+}
+
+// ── Rate-limit backoff (generalised per-provider) ──────────
+
+type BackoffKey = typeof KEYS.claudeBackoff | typeof KEYS.midjourneyBackoff;
+
+async function getBackoffForKey(key: BackoffKey): Promise<BackoffState | null> {
+  const result = await browser.storage.local.get(key);
+  const raw = result[key];
   if (
     !raw ||
     typeof raw !== 'object' ||
@@ -103,10 +178,54 @@ export async function getBackoff(): Promise<BackoffState | null> {
   return raw as BackoffState;
 }
 
-export async function setBackoff(state: BackoffState | null): Promise<void> {
+async function setBackoffForKey(key: BackoffKey, state: BackoffState | null): Promise<void> {
   if (state === null) {
-    await browser.storage.local.remove(KEYS.claudeBackoff);
+    await browser.storage.local.remove(key);
   } else {
-    await browser.storage.local.set({ [KEYS.claudeBackoff]: state });
+    await browser.storage.local.set({ [key]: state });
   }
+}
+
+/** Claude rate-limit backoff. */
+export async function getBackoff(): Promise<BackoffState | null> {
+  return getBackoffForKey(KEYS.claudeBackoff);
+}
+
+export async function setBackoff(state: BackoffState | null): Promise<void> {
+  return setBackoffForKey(KEYS.claudeBackoff, state);
+}
+
+/** Midjourney rate-limit backoff. */
+export async function getMidjourneyBackoff(): Promise<BackoffState | null> {
+  return getBackoffForKey(KEYS.midjourneyBackoff);
+}
+
+export async function setMidjourneyBackoff(state: BackoffState | null): Promise<void> {
+  return setBackoffForKey(KEYS.midjourneyBackoff, state);
+}
+
+// ── Midjourney snapshot ─────────────────────────────────────
+
+export async function getMidjourneySnapshot(): Promise<ProviderUsageSnapshot | null> {
+  const result = await browser.storage.local.get(KEYS.midjourneySnapshot);
+  const raw = result[KEYS.midjourneySnapshot];
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as ProviderUsageSnapshot;
+}
+
+export async function setMidjourneySnapshot(snapshot: ProviderUsageSnapshot): Promise<void> {
+  await browser.storage.local.set({ [KEYS.midjourneySnapshot]: snapshot });
+}
+
+// ── Midjourney auth state ───────────────────────────────────
+
+export async function getMidjourneyAuth(): Promise<AuthState> {
+  const result = await browser.storage.local.get(KEYS.midjourneyAuth);
+  const raw = result[KEYS.midjourneyAuth];
+  if (raw === 'authenticated' || raw === 'unauthenticated') return raw;
+  return 'unknown';
+}
+
+export async function setMidjourneyAuth(state: AuthState): Promise<void> {
+  await browser.storage.local.set({ [KEYS.midjourneyAuth]: state });
 }
