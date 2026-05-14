@@ -9,7 +9,7 @@ const TRYTOKENOMICS_URL = 'https://trytokenomics.com';
 
 const SIGN_IN: Partial<Record<ProviderId, { url: string; site: string }>> = {
   claude: { url: 'https://claude.ai', site: 'claude.ai' },
-  midjourney: { url: 'https://www.midjourney.com/app', site: 'midjourney.com' },
+  midjourney: { url: 'https://www.midjourney.com/', site: 'midjourney.com' },
 };
 
 // ChatGPT path is a local counter, so the empty state asks the user to
