@@ -25,6 +25,7 @@ const moduleCtx = await esbuild.context({
   entryPoints: {
     background: 'src/background.ts',
     'popup/popup': 'src/popup/popup.tsx',
+    'options/options': 'src/options/options.tsx',
   },
   format: 'esm',
 });
@@ -44,6 +45,13 @@ await cp('src/manifest.json', `${outdir}/manifest.json`);
 await cp('src/popup/index.html', `${outdir}/popup/index.html`);
 await cp('src/popup/popup.css', `${outdir}/popup/popup.css`);
 await cp('src/popup/tokens.css', `${outdir}/popup/tokens.css`);
+await mkdir(`${outdir}/options`, { recursive: true });
+await cp('src/options/index.html', `${outdir}/options/index.html`);
+// options.css @imports tokens.css relatively, so tokens.css must sit next to it.
+await cp('src/popup/tokens.css', `${outdir}/options/tokens.css`);
+// options.css is bundled by esbuild as CSS (since it's a sibling to the TSX
+// entrypoint); the browser also needs the raw file for the HTML <link>.
+await cp('src/options/options.css', `${outdir}/options/options.css`);
 if (existsSync('src/icons')) {
   await cp('src/icons', `${outdir}/icons`, { recursive: true });
 }

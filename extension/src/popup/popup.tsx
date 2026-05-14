@@ -10,6 +10,7 @@ import {
 import {
   getChatGPTSnapshot,
   getClaudeSnapshot,
+  getMidjourneySnapshot,
   getPinnedProvider,
   getSelectedTab,
   setPinnedProvider,
@@ -27,9 +28,9 @@ const DEFAULT_TAB: ProviderId = PROVIDERS[0];
 /**
  * Providers with a live reader. As phases land, this grows — Phase 1 was
  * just Claude; Phase 1.5 adds ChatGPT (lives in the `codex` tab since it
- * represents the OpenAI account).
+ * represents the OpenAI account); Phase 4.5 adds Midjourney.
  */
-const VISIBLE_PROVIDERS: readonly ProviderId[] = ['claude', 'codex'];
+const VISIBLE_PROVIDERS: readonly ProviderId[] = ['claude', 'codex', 'midjourney'];
 
 type SnapshotMap = Partial<Record<ProviderId, ProviderUsageSnapshot>>;
 
@@ -50,12 +51,15 @@ function App() {
       if (stored) setSelected(stored);
     });
     void getPinnedProvider().then(setPinned);
-    void Promise.all([getClaudeSnapshot(), getChatGPTSnapshot()]).then(([claude, chatgpt]) => {
-      setSnapshots({
-        ...(claude ? { claude } : {}),
-        ...(chatgpt ? { codex: chatgpt } : {}),
-      });
-    });
+    void Promise.all([getClaudeSnapshot(), getChatGPTSnapshot(), getMidjourneySnapshot()]).then(
+      ([claude, chatgpt, midjourney]) => {
+        setSnapshots({
+          ...(claude ? { claude } : {}),
+          ...(chatgpt ? { codex: chatgpt } : {}),
+          ...(midjourney ? { midjourney } : {}),
+        });
+      },
+    );
   }, []);
 
   // Live updates from the service worker.
@@ -72,6 +76,10 @@ function App() {
       if ('chatgptSnapshot' in changes) {
         const next = changes['chatgptSnapshot']?.newValue as ProviderUsageSnapshot | undefined;
         setSnapshots((prev) => ({ ...prev, codex: next ?? undefined }));
+      }
+      if ('midjourneySnapshot' in changes) {
+        const next = changes['midjourneySnapshot']?.newValue as ProviderUsageSnapshot | undefined;
+        setSnapshots((prev) => ({ ...prev, midjourney: next ?? undefined }));
       }
     };
     browser.storage.onChanged.addListener(handler);
@@ -114,7 +122,7 @@ function App() {
   };
 
   const handleSettings = () => {
-    console.log('[tokenomics] settings requested (options page lands later)');
+    void browser.runtime.openOptionsPage();
   };
 
   const currentSnapshot = snapshots[selected];

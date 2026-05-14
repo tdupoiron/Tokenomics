@@ -91,8 +91,12 @@ const QUOTA: Record<Exclude<ChatGPTPlan, 'unknown'>, PlanQuota> = {
     longWindowLabel: 'Weekly Thinking',
   },
   pro: {
+    // ChatGPT Pro ($200/mo) is effectively uncapped on GPT-5.x per
+    // OpenAI's published behaviour (May 2026). We carry a very high
+    // sentinel so the bar shows a tiny utilization rather than misleading
+    // the user with a low cap. The count is still informational.
     shortWindowSec: 3 * 3600,
-    shortWindowLimit: 800,
+    shortWindowLimit: 5000,
     shortWindowLabel: '3-Hour Window',
     longWindowSec: 7 * 86400,
     longWindowLimit: 15000,

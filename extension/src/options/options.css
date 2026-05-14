@@ -1,0 +1,220 @@
+/* Options page — imports the shared design token layer.
+   In source: tokens.css lives at ../popup/tokens.css.
+   In dist: build.mjs copies tokens.css into dist/options/ alongside this file.
+   The import below references the dist-side path (same directory) which is
+   what the browser loads. During development, tokens are inlined from the
+   popup directory copy. */
+@import 'tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+}
+
+/* ── Page shell ─────────────────────────────────────────── */
+
+.options-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--s-6) var(--s-5);
+}
+
+/* ── Page header ────────────────────────────────────────── */
+
+.options-page__header {
+  margin-bottom: var(--s-6);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--s-5);
+}
+
+.options-page__wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+
+.options-page__wordmark-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.options-page__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+/* ── Section ────────────────────────────────────────────── */
+
+.options-section {
+  margin-bottom: var(--s-6);
+}
+
+.options-section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+
+.options-section__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.8;
+}
+
+.options-section__icon--chatgpt {
+  background-image: url(../icons/providers/Codex-d.blue.svg);
+}
+
+[data-theme='dark'] .options-section__icon--chatgpt {
+  background-image: url(../icons/providers/Codex-white.svg);
+}
+
+.options-section__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.options-section__description {
+  margin: 0 0 var(--s-4) 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Radio group ─────────────────────────────────────────── */
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+  border-bottom: 1px solid var(--border);
+}
+
+.radio-option:last-child {
+  border-bottom: none;
+}
+
+.radio-option:hover {
+  background: var(--bg-2);
+}
+
+.radio-option:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Visually hidden native radio — keeps keyboard behavior (arrow keys
+   navigate within the group, Tab moves to next control) without
+   showing browser chrome. */
+.radio-option__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Custom circle indicator */
+.radio-option__indicator {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px; /* optical alignment with first line of label text */
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+  position: relative;
+  transition: border-color var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease);
+}
+
+.radio-option__indicator::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+
+/* Selected state — driven by a data attribute set in JS so we don't
+   need :has() (Safari <15 compat, though in practice this is Chrome).
+   We also cover the :checked sibling for free keyboard nav correctness. */
+.radio-option[data-selected='true'] .radio-option__indicator,
+.radio-option__input:checked ~ .radio-option__indicator {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.radio-option[data-selected='true'] .radio-option__indicator::after,
+.radio-option__input:checked ~ .radio-option__indicator::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.radio-option__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.radio-option__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.radio-option__helper {
+  font-size: 12px;
+  color: var(--text-subtle);
+  margin-top: 2px;
+}

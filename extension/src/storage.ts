@@ -14,6 +14,9 @@ const KEYS = {
   chatgptEvents: 'chatgptEvents',
   chatgptPlanAuto: 'chatgptPlanAuto',
   chatgptPlanOverride: 'chatgptPlanOverride',
+  midjourneySnapshot: 'midjourneySnapshot',
+  midjourneyAuth: 'midjourneyAuth',
+  midjourneyBackoff: 'midjourneyBackoff',
 } as const;
 
 const ORG_ID_TTL_MS = 24 * 60 * 60 * 1000;
@@ -157,11 +160,13 @@ function isChatGPTPlan(value: unknown): value is ChatGPTPlan {
   return value === 'free' || value === 'plus' || value === 'pro' || value === 'team' || value === 'unknown';
 }
 
-// ── Claude rate-limit backoff ───────────────────────────────
+// ── Rate-limit backoff (generalised per-provider) ──────────
 
-export async function getBackoff(): Promise<BackoffState | null> {
-  const result = await browser.storage.local.get(KEYS.claudeBackoff);
-  const raw = result[KEYS.claudeBackoff];
+type BackoffKey = typeof KEYS.claudeBackoff | typeof KEYS.midjourneyBackoff;
+
+async function getBackoffForKey(key: BackoffKey): Promise<BackoffState | null> {
+  const result = await browser.storage.local.get(key);
+  const raw = result[key];
   if (
     !raw ||
     typeof raw !== 'object' ||
@@ -173,10 +178,54 @@ export async function getBackoff(): Promise<BackoffState | null> {
   return raw as BackoffState;
 }
 
-export async function setBackoff(state: BackoffState | null): Promise<void> {
+async function setBackoffForKey(key: BackoffKey, state: BackoffState | null): Promise<void> {
   if (state === null) {
-    await browser.storage.local.remove(KEYS.claudeBackoff);
+    await browser.storage.local.remove(key);
   } else {
-    await browser.storage.local.set({ [KEYS.claudeBackoff]: state });
+    await browser.storage.local.set({ [key]: state });
   }
+}
+
+/** Claude rate-limit backoff. */
+export async function getBackoff(): Promise<BackoffState | null> {
+  return getBackoffForKey(KEYS.claudeBackoff);
+}
+
+export async function setBackoff(state: BackoffState | null): Promise<void> {
+  return setBackoffForKey(KEYS.claudeBackoff, state);
+}
+
+/** Midjourney rate-limit backoff. */
+export async function getMidjourneyBackoff(): Promise<BackoffState | null> {
+  return getBackoffForKey(KEYS.midjourneyBackoff);
+}
+
+export async function setMidjourneyBackoff(state: BackoffState | null): Promise<void> {
+  return setBackoffForKey(KEYS.midjourneyBackoff, state);
+}
+
+// ── Midjourney snapshot ─────────────────────────────────────
+
+export async function getMidjourneySnapshot(): Promise<ProviderUsageSnapshot | null> {
+  const result = await browser.storage.local.get(KEYS.midjourneySnapshot);
+  const raw = result[KEYS.midjourneySnapshot];
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as ProviderUsageSnapshot;
+}
+
+export async function setMidjourneySnapshot(snapshot: ProviderUsageSnapshot): Promise<void> {
+  await browser.storage.local.set({ [KEYS.midjourneySnapshot]: snapshot });
+}
+
+// ── Midjourney auth state ───────────────────────────────────
+
+export async function getMidjourneyAuth(): Promise<AuthState> {
+  const result = await browser.storage.local.get(KEYS.midjourneyAuth);
+  const raw = result[KEYS.midjourneyAuth];
+  if (raw === 'authenticated' || raw === 'unauthenticated') return raw;
+  return 'unknown';
+}
+
+export async function setMidjourneyAuth(state: AuthState): Promise<void> {
+  await browser.storage.local.set({ [KEYS.midjourneyAuth]: state });
 }
