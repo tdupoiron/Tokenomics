@@ -15,13 +15,12 @@ Phase 1.5 + 4.5 ships three providers:
   auto-detected via `/backend-api/me` with a manual override. The
   popup shows an `estimated` indicator next to the plan badge to keep
   the framing honest.
-- **Midjourney** — real usage via `www.midjourney.com/api/app/billing/balance`,
-  cookie auth, polled every 10 min. Shows Fast Hours (primary window)
-  and GPU Minutes (secondary window, when the plan meters them). Plan
-  label (Standard / Pro / Mega) shown in the Header's PlanBadge.
-  **Endpoint shape is unverified** — the field names were inferred from
-  the plan doc; the parser logs every raw response to the SW console so
-  the first real user can confirm or correct the mapping.
+- **Midjourney** — real usage via `www.midjourney.com/api/user-account`,
+  cookie auth + `X-CSRF-Protection: 1` header, polled every 10 min. Shows
+  Fast Hours used / total against the plan's credit allocation (60,000
+  credits = 1 Fast minute, exact). Plan label resolved from the static
+  catalog in the response (Basic / Standard / Pro / Mega); accounts
+  without an active subscription show "No plan".
 
 Google AI, GitHub Copilot, and Cursor tabs link to the Tokenomics
 Mac app.
@@ -60,11 +59,9 @@ in 5h 0m` (Free plan), with an `estimated` indicator next to the
 plan badge.
 
 **Midjourney:** sign in to <https://www.midjourney.com/app>. Within
-10 min the Midjourney tab shows your Fast Hours and GPU Minutes usage.
-Check the SW console for the raw `midjourney raw billing response`
-log line — it prints on every successful poll so you can confirm the
-field names match the real API. If the numbers look wrong, compare
-against the Billing page in the MJ web app.
+10 min the Midjourney tab shows your Fast Hours used / total against
+your plan's credit allocation. Trial/free accounts show "No plan" and
+zero usage (no subscription to meter against).
 
 ### Debug
 
@@ -94,8 +91,9 @@ src/
 │                      10-min poll with same backoff; ChatGPT
 │                      message handler + 24h plan re-detect; badge
 ├── claude.ts          /api/organizations + /api/organizations/{id}/usage
-├── midjourney.ts      /api/app/billing/balance — Fast Hours + GPU
-│                      Minutes; plan label from response field
+├── midjourney.ts      /api/user-account (X-CSRF-Protection: 1 header)
+│                      — credits → Fast minutes (60K credits = 1 min);
+│                      plan label from static catalog in response
 ├── chatgpt.ts         /backend-api/me plan detect + counter math
 │                      (no server-side usage endpoint exists)
 ├── content/
@@ -146,13 +144,11 @@ No `<all_urls>`, no `chrome.cookies`, no `chrome.tabs`, no `scripting`.
 - ChatGPT quota table reflects May 2026 OpenAI defaults (Free
   10/5h GPT-5.5, Plus 160/3h, Pro effectively uncapped). These
   shift quarterly.
-- **Midjourney endpoint shape is unverified.** The parser maps
-  hypothesised field names from the plan doc (`fast_time_remaining_min`,
-  `fast_time_total_min`, `gpu_minutes_used`, `gpu_minutes_included`,
-  `plan`, `cycle_resets_at`). Every successful poll logs the raw JSON
-  to the SW console so Rob can confirm or correct the mapping against
-  a real session. If numbers are wrong, compare the SW console output
-  to the MJ Billing page and update `midjourney.ts` accordingly.
+- **Midjourney billing-cycle reset** is approximated as
+  `userData.updated + 30 days` when the response omits an explicit
+  renewal timestamp (the trial response captured for verification did
+  not include one — active subscriptions may; the parser will use the
+  real field if present).
 - Gemini consumer reader is deferred.
 - No native messaging bridge to the Mac app — Phase 2.
 - Chrome only. Safari port lands in a later phase.

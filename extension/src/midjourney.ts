@@ -1,49 +1,36 @@
 /**
  * Midjourney usage reader.
  *
- * Polls https://www.midjourney.com/api/app/billing/balance with the user's
- * session cookie (credentials: 'include'). The cookie auth pattern mirrors
- * claude.ts — no token extraction, no API key, no DOM scraping.
+ * Polls https://www.midjourney.com/api/user-account with the user's session
+ * cookie (credentials: 'include') plus the X-CSRF-Protection header that the
+ * MJ web client uses for its own API calls. The cookie auth pattern mirrors
+ * claude.ts — no token extraction, no API key, no DOM scraping. The CSRF
+ * header is a static '1' (not a per-session token).
  *
- * ENDPOINT SHAPE — verification status (2026-05-13):
- * The plan doc §4.4 hypothesised the response shape below. No public API
- * docs exist and no open-source tracker was found in GitHub code search
- * that hits this specific endpoint. The field names below are the plan's
- * best guess based on the web app's observable behaviour. If the parser
- * encounters unknown/missing fields it defaults safely and logs the raw
- * body so a future maintainer can update the mapping. Treat this as
- * "version 1, needs real-user validation."
+ * Endpoint shape verified 2026-05-14 against a real account. See `interface
+ * UserAccountResponse` below for the fields we depend on. The Midjourney web
+ * client uses this same endpoint to populate the Account Settings page.
  *
- * Hypothesised response body:
- * {
- *   fast_time_remaining_min: number,   // Fast time left this cycle (minutes)
- *   fast_time_total_min: number,       // Fast time cap for the plan (minutes)
- *   relax_time_used_min?: number,      // Relax time used (unbounded on paid plans)
- *   gpu_minutes_used?: number,         // GPU minutes consumed
- *   gpu_minutes_included?: number,     // GPU minutes cap (absent → unlimited)
- *   plan?: 'standard' | 'pro' | 'mega', // Plan tier
- *   cycle_resets_at?: string,          // ISO-8601 billing-cycle reset date
- * }
+ * Billing unit is "credits" — the static plan catalog inside the response
+ * lets us derive a stable conversion factor:
+ *   - Basic plan: 12,000,000 credits / month → ~200 images → ~3.3 Fast hours
+ *   - Standard:   54,000,000 credits / month → 15 Fast hours
+ *   - Pro:       108,000,000 credits / month → 30 Fast hours
+ *   - Mega:      216,000,000 credits / month → 60 Fast hours
  *
- * If the real response differs, the parser falls through to safe defaults
- * and the console logs the raw body for debugging.
+ *   ⇒ 60,000 credits = 1 Fast minute (exact across all paid tiers).
  */
 
 import type { ProviderUsageSnapshot, WindowUsage } from './snapshot';
 
-const API_URL = 'https://www.midjourney.com/api/app/billing/balance';
+const API_URL = 'https://www.midjourney.com/api/user-account';
 
-/** Minutes of Fast time per plan tier. Used when the response omits the cap. */
-const FAST_MINUTES_BY_PLAN: Record<string, number> = {
-  standard: 15 * 60,   // 15 Fast hours = 900 min
-  pro:      30 * 60,   // 30 Fast hours = 1800 min
-  mega:     60 * 60,   // 60 Fast hours = 3600 min
-};
+/** 60,000 credits = 1 Fast minute. Stable across all paid tiers. */
+const CREDITS_PER_FAST_MINUTE = 60_000;
 
-const FALLBACK_FAST_MINUTES = 15 * 60; // assume Standard when plan unknown
-
-// Billing cycle approximation: 30 days in seconds (used when no reset date)
+/** Default billing cycle when the response omits a renewal timestamp. */
 const THIRTY_DAY_SEC = 30 * 24 * 3600;
+const THIRTY_DAY_MS = THIRTY_DAY_SEC * 1000;
 
 export class AuthError extends Error {
   constructor() {
@@ -59,32 +46,49 @@ export class RateLimitError extends Error {
   }
 }
 
-/** Raw response shape from /api/app/billing/balance (fields may be absent). */
-interface BillingBalanceResponse {
-  fast_time_remaining_min?: unknown;
-  fast_time_total_min?: unknown;
-  relax_time_used_min?: unknown;
-  gpu_minutes_used?: unknown;
-  gpu_minutes_included?: unknown;
-  plan?: unknown;
-  cycle_resets_at?: unknown;
-  // Allow extra unknown fields without TypeScript errors.
-  [key: string]: unknown;
+// ── Response types (verified against a real /api/user-account response) ──
+
+interface UserAccountResponse {
+  user?: {
+    abilities?: {
+      billing?: boolean;
+      subscription?: {
+        type?: string; // 'none' when not subscribed, 'plan' (assumed) when active
+        key?: string;  // 'basic' | 'standard' | 'pro' | 'mega' when type === 'plan'
+      };
+    };
+  };
+  plans?: ReadonlyArray<{
+    type?: string;
+    key?: string;
+    copy?: { name?: string };
+    credit_period?: string; // 'month' | 'year'
+    credit_allocation?: number;
+  }>;
+  userData?: {
+    status?: string;
+    created?: number;
+    updated?: number;
+    period_credits?: number;
+    credit_period_usage?: number;
+    period_credits_used?: number; // alias seen on trial accounts
+    credits_total?: number;
+    // Some MJ accounts include a renewal timestamp; field name unconfirmed.
+    next_period_at?: number;
+    period_ends_at?: number;
+    credit_period_ends_at?: number;
+  };
 }
 
-/** Fetch and parse Midjourney billing balance into a ProviderUsageSnapshot. */
 export async function fetchMidjourneyUsage(): Promise<ProviderUsageSnapshot> {
-  const res = await fetch(API_URL, { credentials: 'include' });
+  const res = await fetch(API_URL, {
+    credentials: 'include',
+    headers: { 'X-CSRF-Protection': '1' },
+  });
   throwOnAuthOrRateLimit(res);
-  if (!res.ok) throw new Error(`midjourney billing/balance fetch failed: ${res.status}`);
+  if (!res.ok) throw new Error(`midjourney user-account fetch failed: ${res.status}`);
 
-  const raw = (await res.json()) as BillingBalanceResponse;
-
-  // Log the full response body on every successful poll. This is intentional:
-  // the field names are hypothesised — having real payloads in the console
-  // lets us validate and update the parser without another investigation pass.
-  console.log('[tokenomics] midjourney raw billing response:', JSON.stringify(raw));
-
+  const raw = (await res.json()) as UserAccountResponse;
   return mapToSnapshot(raw);
 }
 
@@ -93,58 +97,74 @@ function throwOnAuthOrRateLimit(res: Response): void {
   if (res.status === 429) throw new RateLimitError();
 }
 
-function mapToSnapshot(raw: BillingBalanceResponse): ProviderUsageSnapshot {
-  const planStr = typeof raw.plan === 'string' ? raw.plan.toLowerCase() : '';
-  const planLabel = toDisplayPlan(planStr);
+/** Pure mapper — exported for testing. */
+export function mapToSnapshot(
+  raw: UserAccountResponse,
+  now: number = Date.now(),
+): ProviderUsageSnapshot {
+  const planKey = raw.user?.abilities?.subscription?.key?.toLowerCase() ?? '';
+  const subscribed = raw.user?.abilities?.subscription?.type === 'plan';
 
-  const fastRemMin = toNumber(raw.fast_time_remaining_min, 0);
-  const fastTotalMin =
-    toNumber(raw.fast_time_total_min, 0) ||
-    FAST_MINUTES_BY_PLAN[planStr] ||
-    FALLBACK_FAST_MINUTES;
+  const planLabel = subscribed
+    ? planLabelFromCatalog(raw.plans, planKey) ?? toDisplayPlan(planKey)
+    : 'No plan';
 
-  // Fast usage % (0–100). Remaining is what's left, so used = total - remaining.
-  const fastUsedPct = fastTotalMin > 0
-    ? Math.min(100, Math.max(0, ((fastTotalMin - fastRemMin) / fastTotalMin) * 100))
-    : 0;
+  const periodCredits = toNumber(raw.userData?.period_credits, 0);
+  const usedCredits =
+    toNumber(raw.userData?.credit_period_usage, NaN) ||
+    toNumber(raw.userData?.period_credits_used, 0);
 
-  const cycleResetsAt = typeof raw.cycle_resets_at === 'string' ? raw.cycle_resets_at : '';
+  // If we don't have a subscription OR have no allocation, expose a zero bar
+  // rather than a misleading partial fill. Avoids divide-by-zero on trials.
+  const utilization =
+    periodCredits > 0
+      ? Math.min(100, Math.max(0, Math.round((usedCredits / periodCredits) * 100)))
+      : 0;
+
+  const fastMinutesUsed = usedCredits / CREDITS_PER_FAST_MINUTE;
+  const fastMinutesTotal = periodCredits / CREDITS_PER_FAST_MINUTE;
+
+  const resetMs = resolveResetMs(raw, now);
+  const resetsAt = new Date(resetMs).toISOString();
 
   const fastWindow: WindowUsage = {
     label: 'Fast Hours',
-    utilization: fastUsedPct,
-    resetsAt: cycleResetsAt,
+    utilization,
+    resetsAt,
     windowDurationSec: THIRTY_DAY_SEC,
+    sublabelOverride: subscribed
+      ? formatFastSublabel(fastMinutesUsed, fastMinutesTotal, resetMs, now)
+      : 'No active subscription',
   };
-
-  // GPU minutes window — only present when the plan has a cap.
-  let gpuWindow: WindowUsage | null = null;
-  const gpuUsed = toNumber(raw.gpu_minutes_used, -1);
-  const gpuIncluded = toNumber(raw.gpu_minutes_included, -1);
-  if (gpuUsed >= 0 && gpuIncluded > 0) {
-    const gpuPct = Math.min(100, Math.max(0, (gpuUsed / gpuIncluded) * 100));
-    gpuWindow = {
-      label: 'GPU Minutes',
-      utilization: gpuPct,
-      resetsAt: cycleResetsAt,
-      windowDurationSec: THIRTY_DAY_SEC,
-    };
-  }
 
   return {
     provider: 'midjourney',
     shortWindow: fastWindow,
-    longWindow: gpuWindow,
+    longWindow: null,
     extras: {},
     planLabel,
-    capturedAt: Date.now(),
+    capturedAt: now,
     estimated: false,
   };
 }
 
-/** Map plan string from the API to a human-readable label. */
-function toDisplayPlan(plan: string): string {
-  switch (plan) {
+function planLabelFromCatalog(
+  plans: UserAccountResponse['plans'],
+  key: string,
+): string | null {
+  if (!plans || !key) return null;
+  for (const p of plans) {
+    if (typeof p?.key === 'string' && p.key.toLowerCase() === key) {
+      const name = p.copy?.name;
+      if (typeof name === 'string' && name.length > 0) return name;
+    }
+  }
+  return null;
+}
+
+function toDisplayPlan(key: string): string {
+  switch (key) {
+    case 'basic':    return 'Basic';
     case 'standard': return 'Standard';
     case 'pro':      return 'Pro';
     case 'mega':     return 'Mega';
@@ -152,7 +172,59 @@ function toDisplayPlan(plan: string): string {
   }
 }
 
-/** Safely coerce an unknown value to a number, returning fallback on failure. */
+function resolveResetMs(raw: UserAccountResponse, now: number): number {
+  const candidates = [
+    raw.userData?.next_period_at,
+    raw.userData?.period_ends_at,
+    raw.userData?.credit_period_ends_at,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'number' && Number.isFinite(c) && c > now) return c;
+  }
+  // Fall back to `updated` (most recent activity) + 30d. For accounts without
+  // an explicit renewal field, this is the best monthly-cycle approximation.
+  const anchor = toNumber(raw.userData?.updated, NaN) || toNumber(raw.userData?.created, now);
+  return anchor + THIRTY_DAY_MS;
+}
+
+function formatFastSublabel(
+  usedMin: number,
+  totalMin: number,
+  resetMs: number,
+  now: number,
+): string {
+  const used = formatHoursMinutes(usedMin);
+  if (totalMin <= 0) {
+    return `${used} used`;
+  }
+  const total = formatHoursMinutes(totalMin);
+  const reset = formatResetCompact(resetMs, now);
+  return reset
+    ? `${used} of ${total} · ${reset}`
+    : `${used} of ${total}`;
+}
+
+function formatHoursMinutes(min: number): string {
+  if (!Number.isFinite(min) || min <= 0) return '0m';
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h <= 0) return `${m}m`;
+  if (m <= 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function formatResetCompact(resetMs: number, now: number): string {
+  const remainingMs = resetMs - now;
+  if (remainingMs <= 0) return 'resets now';
+  const totalMinutes = Math.floor(remainingMs / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours >= 24) return `resets in ${Math.floor(hours / 24)}d`;
+  if (hours > 0) return `resets in ${hours}h ${minutes}m`;
+  return `resets in ${minutes}m`;
+}
+
 function toNumber(value: unknown, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string') {
