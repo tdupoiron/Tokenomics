@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import type { ChatGPTMessageEvent, ChatGPTPlan } from './chatgpt';
 import { isProviderId, type ProviderId } from './types';
 import type { AuthState, BackoffState, ProviderUsageSnapshot } from './snapshot';
 
@@ -9,6 +10,10 @@ const KEYS = {
   claudeSnapshot: 'claudeSnapshot',
   claudeAuth: 'claudeAuth',
   claudeBackoff: 'claudeBackoff',
+  chatgptSnapshot: 'chatgptSnapshot',
+  chatgptEvents: 'chatgptEvents',
+  chatgptPlanAuto: 'chatgptPlanAuto',
+  chatgptPlanOverride: 'chatgptPlanOverride',
 } as const;
 
 const ORG_ID_TTL_MS = 24 * 60 * 60 * 1000;
@@ -87,7 +92,72 @@ export async function setClaudeAuth(state: AuthState): Promise<void> {
   await browser.storage.local.set({ [KEYS.claudeAuth]: state });
 }
 
-// ── Backoff (rate-limit) state ──────────────────────────────
+// ── ChatGPT snapshot (derived from counter) ─────────────────
+
+export async function getChatGPTSnapshot(): Promise<ProviderUsageSnapshot | null> {
+  const result = await browser.storage.local.get(KEYS.chatgptSnapshot);
+  const raw = result[KEYS.chatgptSnapshot];
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as ProviderUsageSnapshot;
+}
+
+export async function setChatGPTSnapshot(snapshot: ProviderUsageSnapshot): Promise<void> {
+  await browser.storage.local.set({ [KEYS.chatgptSnapshot]: snapshot });
+}
+
+// ── ChatGPT counter (rolling log of message events) ─────────
+
+export async function getChatGPTEvents(): Promise<ChatGPTMessageEvent[]> {
+  const result = await browser.storage.local.get(KEYS.chatgptEvents);
+  const raw = result[KEYS.chatgptEvents];
+  if (!Array.isArray(raw)) return [];
+  return raw as ChatGPTMessageEvent[];
+}
+
+export async function setChatGPTEvents(events: ChatGPTMessageEvent[]): Promise<void> {
+  await browser.storage.local.set({ [KEYS.chatgptEvents]: events });
+}
+
+// ── ChatGPT plan (auto-detected + manual override) ──────────
+
+export async function getChatGPTPlanAuto(): Promise<ChatGPTPlan> {
+  const result = await browser.storage.local.get(KEYS.chatgptPlanAuto);
+  const raw = result[KEYS.chatgptPlanAuto];
+  return isChatGPTPlan(raw) ? raw : 'unknown';
+}
+
+export async function setChatGPTPlanAuto(plan: ChatGPTPlan): Promise<void> {
+  await browser.storage.local.set({ [KEYS.chatgptPlanAuto]: plan });
+}
+
+export async function getChatGPTPlanOverride(): Promise<ChatGPTPlan | null> {
+  const result = await browser.storage.local.get(KEYS.chatgptPlanOverride);
+  const raw = result[KEYS.chatgptPlanOverride];
+  return isChatGPTPlan(raw) && raw !== 'unknown' ? raw : null;
+}
+
+export async function setChatGPTPlanOverride(plan: ChatGPTPlan | null): Promise<void> {
+  if (plan === null || plan === 'unknown') {
+    await browser.storage.local.remove(KEYS.chatgptPlanOverride);
+  } else {
+    await browser.storage.local.set({ [KEYS.chatgptPlanOverride]: plan });
+  }
+}
+
+/** Resolves the effective plan: manual override wins; otherwise auto. */
+export async function getChatGPTPlanEffective(): Promise<ChatGPTPlan> {
+  const [override, auto] = await Promise.all([
+    getChatGPTPlanOverride(),
+    getChatGPTPlanAuto(),
+  ]);
+  return override ?? auto;
+}
+
+function isChatGPTPlan(value: unknown): value is ChatGPTPlan {
+  return value === 'free' || value === 'plus' || value === 'pro' || value === 'team' || value === 'unknown';
+}
+
+// ── Claude rate-limit backoff ───────────────────────────────
 
 export async function getBackoff(): Promise<BackoffState | null> {
   const result = await browser.storage.local.get(KEYS.claudeBackoff);

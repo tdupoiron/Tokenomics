@@ -1,11 +1,23 @@
 # Tokenomics Web Companion
 
-Chrome (MV3) extension that reads Claude.ai usage from your signed-in
-browser session and renders it in a popup mirroring the Tokenomics
-menu bar widget.
+Chrome (MV3) extension that surfaces AI usage in a popup mirroring the
+Tokenomics menu bar widget.
 
-Phase 1 ships Claude only. OpenAI, Google AI, GitHub Copilot, and
-Cursor tabs link to the Tokenomics Mac app; Midjourney is "Coming."
+Phase 1.5 ships two providers:
+
+- **Claude** — real usage via `claude.ai/api/organizations/{id}/usage`,
+  cookie auth, polled every 5 min.
+- **ChatGPT (OpenAI tab)** — local counter. OpenAI doesn't expose a
+  server-side usage endpoint to the web client (we verified — zero
+  matching network requests), so a content script on `chatgpt.com`
+  observes outbound `POST /backend-api/conversation` calls and counts
+  locally against the published quota for the user's plan. Plan is
+  auto-detected via `/backend-api/me` with a manual override. The
+  popup shows an `estimated` indicator next to the plan badge to keep
+  the framing honest.
+
+Google AI, GitHub Copilot, and Cursor tabs link to the Tokenomics
+Mac app; Midjourney is "Coming."
 
 ## Develop
 
@@ -27,22 +39,29 @@ npm run typecheck   # tsc --noEmit
 
 The Tokenomics icon appears in the toolbar. Click it to open the popup.
 
-## Verify the Claude.ai reader
+## Verify the readers
 
-1. Sign in to <https://claude.ai> in this Chrome
-2. Click the Tokenomics toolbar icon to open the popup
-3. On install (or within 5 min) the popup replaces its sign-in prompt
-   with your live 5-hour and 7-day utilization
-4. The toolbar icon shows your 5-hour utilization as a badge (e.g. `36%`)
+**Claude:** sign in to <https://claude.ai> in this Chrome, open the
+popup. Within 5 min the Claude tab shows your 5-hour + 7-day
+utilization. The toolbar badge shows the highest utilization across
+signed-in providers (or your pinned provider if set).
+
+**ChatGPT:** sign in to <https://chatgpt.com> and send any message.
+The content script counts the request as you chat. Open the popup,
+switch to the OpenAI tab — you should see `1 of 10 messages · resets
+in 5h 0m` (Free plan), with an `estimated` indicator next to the
+plan badge.
 
 ### Debug
 
 <chrome://extensions> → Tokenomics → click **service worker**:
 
-- **Console** — boot logs, poll results, error traces
-- **Application** → **Local Storage** → `chrome-extension://…` — inspect
-  `claudeSnapshot`, `claudeAuth`, `claudeOrgId`, `claudeBackoff`,
-  `selectedTab`, `pinnedProvider`
+- **Console** — boot logs, Claude poll results, ChatGPT plan detection,
+  per-message log lines (`chatgpt message observed (model=...)`)
+- **Application** → **Local Storage** → `chrome-extension://…` —
+  inspect: `claudeSnapshot`, `claudeAuth`, `claudeOrgId`, `claudeBackoff`,
+  `chatgptSnapshot`, `chatgptEvents` (the raw message log),
+  `chatgptPlanAuto`, `chatgptPlanOverride`, `selectedTab`, `pinnedProvider`
 
 Force a fresh poll from the SW console:
 
@@ -54,9 +73,16 @@ chrome.runtime.sendMessage({ kind: 'REFRESH_REQUESTED' })
 
 ```
 src/
-├── background.ts      MV3 service worker; chrome.alarms 5-min poll;
-│                      backoff (5→10→20→40→60 min cap); badge updates
+├── background.ts      MV3 service worker; Claude 5-min poll with
+│                      backoff (5→10→20→40→60 min cap); ChatGPT
+│                      message handler + 24h plan re-detect; badge
 ├── claude.ts          /api/organizations + /api/organizations/{id}/usage
+├── chatgpt.ts         /backend-api/me plan detect + counter math
+│                      (no server-side usage endpoint exists)
+├── content/
+│   └── chatgpt-watch.ts   document_start content script; injects a
+│                          MAIN-world fetch monkey-patch that emits a
+│                          CHATGPT_MESSAGE event per /backend-api/conversation POST
 ├── snapshot.ts        ProviderUsageSnapshot types + pace / reset helpers
 │                      (mirrors Tokenomics/Models/Provider.swift)
 ├── storage.ts         browser.storage.local accessors
@@ -73,27 +99,35 @@ src/
 
 ## Privacy
 
-No telemetry, no analytics, no remote reporting. The only network
-requests the extension makes are to `https://claude.ai`, authenticated
-by your existing session cookie. Tokens are never extracted.
+No telemetry, no analytics, no remote reporting. All Claude and
+ChatGPT data stays on your machine — the extension's only network
+calls are to `claude.ai` (usage endpoint) and `chatgpt.com`
+(`/backend-api/me` for plan detection, plus passive observation of
+the chat tab's own requests via a content script). Cookies aren't
+read; tokens aren't extracted.
 
 Manifest permissions:
 
-- `storage` — persisting tab selection, pin state, snapshot, org id
-- `alarms` — 5-minute periodic poll
-- `host_permissions: ["https://claude.ai/*"]` — usage endpoints only
+- `storage` — persisting tab selection, pin state, snapshots, event log
+- `alarms` — periodic Claude poll + daily ChatGPT plan re-detect
+- `host_permissions: ["https://claude.ai/*", "https://chatgpt.com/*"]`
+  — limited to the two providers we read
+- `content_scripts` on `chatgpt.com/*` — observes the page's own
+  `/backend-api/conversation` calls (does not initiate them)
 
-No `<all_urls>`, no `chrome.cookies`, no `chrome.tabs`.
+No `<all_urls>`, no `chrome.cookies`, no `chrome.tabs`, no `scripting`.
 
-## Phase 1 limitations
+## Phase 1.5 limitations
 
-- Claude consumer (claude.ai) is the only live reader. ChatGPT,
-  Gemini consumer, and Midjourney readers land in Phase 1.5.
+- ChatGPT counter is local-only and `estimated`: it counts what you
+  send from THIS browser. Messages sent from your phone, another
+  browser, or another machine don't count. This matches every other
+  shipping ChatGPT tracker — there is no server-side endpoint to
+  read accurate numbers from.
+- ChatGPT quota table reflects May 2026 OpenAI defaults (Free
+  10/5h, Plus 160/3h, Pro 800/3h). These shift quarterly.
+- Gemini consumer and Midjourney readers are deferred.
 - No native messaging bridge to the Mac app — Phase 2.
-- Chrome only. Safari port lands in Phase 3.
-- Plan label hardcoded to "Pro." Derived plan detection lands when
-  the `/organizations` settings shape is mapped.
-- Toolbar badge collapses to Claude's utilization in Phase 1 because
-  it's the only live provider. Smart/pin selection still persists via
-  the DisplayModeMenu and will route the badge correctly when more
-  readers ship.
+- Chrome only. Safari port lands in a later phase.
+- Claude plan label hardcoded to "Pro"; ChatGPT plan auto-detected
+  from `/backend-api/me`, falling back to the user's manual choice.

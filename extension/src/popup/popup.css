@@ -43,6 +43,20 @@ body {
   color: var(--widget-label);
 }
 
+.header__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.header__estimated {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--widget-label);
+  opacity: 0.6;
+  font-style: italic;
+}
+
 .plan-badge {
   display: inline-block;
   padding: 2px var(--s-2);

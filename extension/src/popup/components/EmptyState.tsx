@@ -11,6 +11,12 @@ const SIGN_IN: Partial<Record<ProviderId, { url: string; site: string }>> = {
   claude: { url: 'https://claude.ai', site: 'claude.ai' },
 };
 
+// ChatGPT path is a local counter, so the empty state asks the user to
+// open chatgpt.com and chat — that's what populates the counter.
+const COUNT_LOCALLY: Partial<Record<ProviderId, { url: string; site: string }>> = {
+  codex: { url: 'https://chatgpt.com', site: 'chatgpt.com' },
+};
+
 export function EmptyState({ provider }: Props) {
   const signIn = SIGN_IN[provider];
   if (signIn) {
@@ -26,6 +32,26 @@ export function EmptyState({ provider }: Props) {
           rel="noreferrer noopener"
         >
           Open {signIn.site} →
+        </a>
+      </div>
+    );
+  }
+
+  const countLocally = COUNT_LOCALLY[provider];
+  if (countLocally) {
+    return (
+      <div class="empty-state">
+        <p class="empty-state__copy">
+          Open {countLocally.site} and send a message — your usage is
+          counted locally as you chat.
+        </p>
+        <a
+          class="empty-state__cta"
+          href={countLocally.url}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Open {countLocally.site} →
         </a>
       </div>
     );

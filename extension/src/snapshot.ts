@@ -20,6 +20,9 @@ export interface ProviderUsageSnapshot {
   extras: { opusSevenDay?: WindowUsage };
   planLabel: string;
   capturedAt: number;
+  /** True when the numbers come from a local counter rather than a
+   *  real usage endpoint (e.g. ChatGPT, eventually Gemini). */
+  estimated?: boolean;
 }
 
 export type AuthState = 'authenticated' | 'unauthenticated' | 'unknown';
