@@ -25,6 +25,15 @@ cask "tokenomics" do
     "~/Library/Application Support/Tokenomics",
     "~/Library/Caches/com.robstout.tokenomics",
     "~/Library/Preferences/com.robstout.tokenomics.plist",
+    "~/Library/Logs/Tokenomics",
+    "~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/Google/Chrome Beta/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/Google/Chrome Canary/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/Microsoft Edge/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/Vivaldi/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/com.operasoftware.Opera/NativeMessagingHosts/com.tokenomics.bridge.json",
+    "~/Library/Application Support/Arc/NativeMessagingHosts/com.tokenomics.bridge.json",
   ]
 
   caveats <<~EOS

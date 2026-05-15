@@ -17,6 +17,7 @@ schemes:
     build:
       targets:
         Tokenomics: all
+        TokenomicsBridge: all
         TokenomicsTests: [test]
     run:
       config: Debug
@@ -51,6 +52,12 @@ targets:
         product: Sparkle
       - target: TokenomicsWidgets
         embed: true
+      - target: TokenomicsBridge
+        embed: true
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
     sources:
       - path: Tokenomics
         excludes:
@@ -70,6 +77,8 @@ targets:
       - path: TokenomicsWidgets/WidgetIntent.swift
         type: file
       - path: TokenomicsWidgets/TokenomicsWidgets.swift
+        type: file
+      - path: TokenomicsBridge/BridgeCore.swift
         type: file
     info:
       path: Tokenomics/Resources/Info.plist
@@ -161,6 +170,40 @@ targets:
           DEVELOPMENT_TEAM: RPDDQP7KZ5
           CODE_SIGN_IDENTITY: "Developer ID Application"
           PROVISIONING_PROFILE_SPECIFIER: "Tokenomics Widget Developer ID"
+
+  TokenomicsBridge:
+    type: tool
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: TokenomicsBridge
+      - path: Tokenomics/Models/BridgeWireTypes.swift
+        type: file
+      - path: Tokenomics/Models/ProviderVisibilitySetting.swift
+        type: file
+    entitlements:
+      path: TokenomicsBridge/TokenomicsBridge.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.robstout.tokenomics
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.robstout.tokenomics.bridge
+        PRODUCT_NAME: TokenomicsBridge
+        CODE_SIGN_ENTITLEMENTS: TokenomicsBridge/TokenomicsBridge.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_STRICT_CONCURRENCY: complete
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+      configs:
+        debug:
+          CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: RPDDQP7KZ5
+          CODE_SIGN_IDENTITY: "Apple Development"
+        release:
+          CODE_SIGN_STYLE: Manual
+          DEVELOPMENT_TEAM: RPDDQP7KZ5
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+          PROVISIONING_PROFILE_SPECIFIER: "Tokenomics Bridge Developer ID"
 
   TokenomicsTests:
     type: bundle.unit-test

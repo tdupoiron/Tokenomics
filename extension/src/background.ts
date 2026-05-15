@@ -9,6 +9,7 @@ import { AuthError, fetchClaudeUsage, RateLimitError } from './claude';
 import { AuthError as MJAuthError, fetchMidjourneyUsage, RateLimitError as MJRateLimitError } from './midjourney';
 import type { ExtensionMessage, ExtensionResponse } from './messages';
 import type { ProviderUsageSnapshot } from './snapshot';
+import { sendBridgeBatch, scheduleBridgeSend, registerRefreshWebProvidersHandler } from './bridge';
 import {
   getBackoff,
   getChatGPTEvents,
@@ -34,6 +35,7 @@ import type { ProviderId } from './types';
 const CLAUDE_ALARM = 'claude-poll';
 const MIDJOURNEY_ALARM = 'midjourney-poll';
 const PLAN_REDETECT_ALARM = 'chatgpt-plan-redetect';
+const BRIDGE_HEARTBEAT_ALARM = 'bridgeHeartbeat';
 const POLL_PERIOD_MIN = 5;
 const MIDJOURNEY_POLL_PERIOD_MIN = 10; // less frequent — billing data changes slowly
 const PLAN_REDETECT_PERIOD_MIN = 60 * 24; // re-check plan once a day
@@ -43,6 +45,16 @@ const BACKOFF_INITIAL_MS = 5 * 60_000;
 const BACKOFF_MAX_MS = 60 * 60_000;
 
 console.log('[tokenomics] service worker booted');
+
+// Register the command handler so bridge.ts can trigger re-polls without
+// importing background.ts (which would create a circular dependency).
+registerRefreshWebProvidersHandler(() => {
+  void pollClaude('manual');
+  void pollMidjourney('manual');
+  void recomputeChatGPTSnapshot();
+});
+
+void sendBridgeBatch('ping').catch(() => undefined);
 
 browser.runtime.onInstalled.addListener(async () => {
   await scheduleAlarms();
@@ -59,6 +71,7 @@ browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === CLAUDE_ALARM) void pollClaude('alarm');
   else if (alarm.name === MIDJOURNEY_ALARM) void pollMidjourney('alarm');
   else if (alarm.name === PLAN_REDETECT_ALARM) void redetectChatGPTPlan('alarm');
+  else if (alarm.name === BRIDGE_HEARTBEAT_ALARM) void sendBridgeBatch('heartbeat').catch(() => undefined);
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -115,12 +128,13 @@ async function scheduleAlarms(): Promise<void> {
     browser.alarms.create(CLAUDE_ALARM, { periodInMinutes: POLL_PERIOD_MIN }),
     browser.alarms.create(MIDJOURNEY_ALARM, { periodInMinutes: MIDJOURNEY_POLL_PERIOD_MIN }),
     browser.alarms.create(PLAN_REDETECT_ALARM, { periodInMinutes: PLAN_REDETECT_PERIOD_MIN }),
+    browser.alarms.create(BRIDGE_HEARTBEAT_ALARM, { periodInMinutes: 1 }),
   ]);
 }
 
 // ── Claude poll ─────────────────────────────────────────────
 
-async function pollClaude(trigger: 'install' | 'alarm' | 'manual'): Promise<void> {
+export async function pollClaude(trigger: 'install' | 'alarm' | 'manual'): Promise<void> {
   const existing = await getBackoff();
   if (existing && Date.now() < existing.until && trigger !== 'manual') {
     console.log(`[tokenomics] skipping claude ${trigger} poll, backoff until`, new Date(existing.until));
@@ -130,6 +144,7 @@ async function pollClaude(trigger: 'install' | 'alarm' | 'manual'): Promise<void
   try {
     const snapshot = await fetchClaudeUsage();
     await setClaudeSnapshot(snapshot);
+    scheduleBridgeSend('snapshot');
     await setClaudeAuth('authenticated');
     await setBackoff(null);
     await updateBadge();
@@ -161,7 +176,7 @@ function nextBackoff(prev: { nextDelayMs: number } | null) {
 
 // ── Midjourney poll ─────────────────────────────────────────
 
-async function pollMidjourney(trigger: 'install' | 'alarm' | 'manual'): Promise<void> {
+export async function pollMidjourney(trigger: 'install' | 'alarm' | 'manual'): Promise<void> {
   const existing = await getMidjourneyBackoff();
   if (existing && Date.now() < existing.until && trigger !== 'manual') {
     console.log(`[tokenomics] skipping midjourney ${trigger} poll, backoff until`, new Date(existing.until));
@@ -171,6 +186,7 @@ async function pollMidjourney(trigger: 'install' | 'alarm' | 'manual'): Promise<
   try {
     const snapshot = await fetchMidjourneyUsage();
     await setMidjourneySnapshot(snapshot);
+    scheduleBridgeSend('snapshot');
     await setMidjourneyAuth('authenticated');
     await setMidjourneyBackoff(null);
     await updateBadge();
@@ -203,7 +219,7 @@ async function recordChatGPTMessage(model: string | null, ts: number): Promise<v
   await recomputeChatGPTSnapshot();
 }
 
-async function recomputeChatGPTSnapshot(): Promise<void> {
+export async function recomputeChatGPTSnapshot(): Promise<void> {
   const [events, plan] = await Promise.all([getChatGPTEvents(), getChatGPTPlanEffective()]);
   if (events.length === 0 && plan === 'unknown') {
     // Nothing observed yet and no plan known — leave the empty state alone.
@@ -211,6 +227,7 @@ async function recomputeChatGPTSnapshot(): Promise<void> {
   }
   const snapshot = deriveSnapshot(events, plan);
   await setChatGPTSnapshot(snapshot);
+  scheduleBridgeSend('snapshot');
   await updateBadge();
 }
 

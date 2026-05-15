@@ -37,3 +37,6 @@ docs/web-companion-build-spec.md
 # Embedded Node binary — downloaded by scripts/fetch-node.sh at build time.
 # Not committed because it's ~30 MB and reproducible from the download script.
 Tokenomics/Resources/embedded-node/
+
+# Tokenomics web extension private signing key (NEVER commit)
+tokenomics-extension-key.pem

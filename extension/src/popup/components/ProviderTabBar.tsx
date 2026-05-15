@@ -1,14 +1,16 @@
-import { PROVIDERS, PROVIDER_META, type ProviderId } from '../../types';
+import { PROVIDER_META, type ProviderId } from '../../types';
 
 interface Props {
   selected: ProviderId;
+  /** Ordered list of visible provider IDs to render as tabs. */
+  visibleProviderIds: readonly ProviderId[];
   onSelect: (provider: ProviderId) => void;
 }
 
-export function ProviderTabBar({ selected, onSelect }: Props) {
+export function ProviderTabBar({ selected, visibleProviderIds, onSelect }: Props) {
   return (
     <div class="tab-bar" role="tablist">
-      {PROVIDERS.map((provider) => {
+      {visibleProviderIds.map((provider) => {
         const meta = PROVIDER_META[provider];
         const isSelected = provider === selected;
         return (

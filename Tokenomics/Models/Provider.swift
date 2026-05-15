@@ -11,6 +11,8 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     case claude
     case codex
     case gemini
+    // Consumer web-companion sources (browser-session data via NMH bridge)
+    case chatgpt
     // Coding Tools
     case copilot
     case cursor
@@ -29,6 +31,7 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     var displayName: String {
         switch self {
         case .claude: return "Anthropic"
+        case .chatgpt: return "ChatGPT"
         case .copilot: return "GitHub Copilot"
         case .cursor: return "Cursor"
         case .codex: return "OpenAI"
@@ -46,6 +49,7 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
     var tabLabel: String {
         switch self {
         case .claude: return "Claude"
+        case .chatgpt: return "ChatGPT"
         case .copilot: return "Copilot"
         case .cursor: return "Cursor"
         case .codex: return "OpenAI"
@@ -59,10 +63,13 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
         }
     }
 
-    /// Single-letter label for menu bar and tab icons
+    /// Short label for menu bar and tab icons.
+    /// Most providers use a single letter; ChatGPT uses the full string because
+    /// all single letters are already claimed by other providers.
     var shortLabel: String {
         switch self {
         case .claude: return "C"
+        case .chatgpt: return "ChatGPT"
         case .copilot: return "P"
         case .cursor: return "U"
         case .codex: return "X"
@@ -84,8 +91,8 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
         case .cursor: return "open -a Cursor"
         case .codex: return "codex login"
         case .gemini: return "gemini login"
-        // API-key providers have no CLI auth
-        case .stableDiffusion, .midjourney, .runway, .elevenlabs, .suno, .udio: return ""
+        // Browser-session and API-key providers have no CLI auth
+        case .chatgpt, .stableDiffusion, .midjourney, .runway, .elevenlabs, .suno, .udio: return ""
         }
     }
 
@@ -94,6 +101,8 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
         switch self {
         case .claude, .copilot, .cursor, .codex, .gemini: return true
         case .elevenlabs, .runway, .stableDiffusion: return true
+        // chatgpt data arrives via the NMH bridge (browser-session), not a local API
+        case .chatgpt: return true
         // When flipping any of these to `true`, update docs/PRIVACY.md —
         // the placeholder note currently tells users Tokenomics makes no
         // network calls or credential reads for these three.
@@ -123,8 +132,8 @@ enum ProviderId: String, CaseIterable, Codable, Sendable, Identifiable {
         case .cursor: return "brew install --cask cursor"
         case .codex: return "npm install -g @openai/codex"
         case .gemini: return "npm install -g @google/gemini-cli"
-        // API-key providers don't need installation
-        case .stableDiffusion, .midjourney, .runway, .elevenlabs, .suno, .udio: return ""
+        // Browser-session and API-key providers don't need installation
+        case .chatgpt, .stableDiffusion, .midjourney, .runway, .elevenlabs, .suno, .udio: return ""
         }
     }
 
@@ -146,7 +155,7 @@ extension ProviderId {
 
     var category: ProviderCategory {
         switch self {
-        case .claude, .stableDiffusion: return .platforms
+        case .claude, .chatgpt, .stableDiffusion: return .platforms
         case .copilot, .cursor, .codex, .gemini: return .codingTools
         case .midjourney: return .imageGeneration
         case .runway: return .videoGeneration
@@ -154,7 +163,8 @@ extension ProviderId {
         }
     }
 
-    /// Whether this provider has a working API integration (false = "Coming Soon")
+    /// Whether this provider has a working data integration (false = "Coming Soon").
+    /// chatgpt data arrives via the NMH bridge, not a direct API, so it counts as true.
     var hasAPI: Bool {
         switch self {
         case .midjourney, .suno, .udio: return false
@@ -169,6 +179,7 @@ extension ProviderId {
     var scopeDescription: String? {
         switch self {
         case .claude: return "Claude Chat · Cowork · Code"
+        case .chatgpt: return "ChatGPT · via browser session"
         case .codex: return "Codex CLI"
         case .gemini: return "Gemini CLI"
         case .stableDiffusion: return "Stable Diffusion · Stable Image · Stable Video"
@@ -180,6 +191,7 @@ extension ProviderId {
     var setupGuideAnchor: String {
         switch self {
         case .claude: return "#anthropic"
+        case .chatgpt: return "#chatgpt"
         case .codex: return "#openai"
         case .gemini: return "#google"
         case .copilot: return "#copilot"
@@ -202,6 +214,7 @@ extension ProviderId {
     var iconBaseName: String {
         switch self {
         case .claude: return "Claude"
+        case .chatgpt: return "chatgpt"
         case .codex: return "Codex"
         case .copilot: return "Copilot"
         case .cursor: return "Cursor"

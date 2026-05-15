@@ -288,6 +288,49 @@ enum SettingsService {
         }
     }
 
+    // MARK: - Provider Visibility (NMH Bridge sync)
+
+    private static let providerVisibilityKey = "providerVisibility"
+
+    /// Full per-provider visibility map, keyed by ProviderId.rawValue.
+    /// Used by MacSideStateExporter to seed mac-side.json on launch.
+    static var providerVisibility: [String: ProviderVisibilitySetting] {
+        get {
+            guard let data = defaults.data(forKey: providerVisibilityKey),
+                  let map = try? JSONDecoder.bridge.decode([String: ProviderVisibilitySetting].self, from: data) else {
+                return [:]
+            }
+            return map
+        }
+        set {
+            guard let data = try? JSONEncoder.bridge.encode(newValue) else { return }
+            defaults.set(data, forKey: providerVisibilityKey)
+        }
+    }
+
+    /// Updates a single provider's visibility and stamps `lastChangedAt` with the current time.
+    ///
+    /// Posts `.tokenomicsProviderVisibilityChanged` so MacSideStateExporter can
+    /// pick up the change without requiring every call site to also call the exporter.
+    static func setVisibility(_ enabled: Bool, for providerId: ProviderId) {
+        let setting = ProviderVisibilitySetting(enabled: enabled, lastChangedAt: Date())
+        var map = providerVisibility
+        map[providerId.rawValue] = setting
+        providerVisibility = map
+
+        // Notify bridge layer. Object = ProviderId.rawValue; userInfo carries the setting.
+        NotificationCenter.default.post(
+            name: .tokenomicsProviderVisibilityChanged,
+            object: providerId.rawValue,
+            userInfo: ["setting": setting]
+        )
+    }
+
+    /// Reads a single provider's visibility setting. Returns nil when no preference has been saved.
+    static func visibility(for providerId: ProviderId) -> ProviderVisibilitySetting? {
+        providerVisibility[providerId.rawValue]
+    }
+
     // MARK: - Usage Cache
 
     /// Save a provider's last successful usage snapshot to disk
