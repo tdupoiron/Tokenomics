@@ -3,16 +3,19 @@ import { useEffect, useState } from 'preact/hooks';
 import browser from 'webextension-polyfill';
 import type { ExtensionMessage } from '../messages';
 import type { ChatGPTPlan } from '../chatgpt';
+import type { ProviderVisibilitySetting } from '../bridge-types';
 import { getChatGPTPlanAuto, getChatGPTPlanOverride } from '../storage';
+import { PROVIDERS, PROVIDER_META, type ProviderId } from '../types';
+import { applyVisibilityToggle } from './options-logic';
 
-// ── Theme ────────────────────────────────────────────────────
+// ── Theme ────────────────────────────────────────────
 
 function applyTheme() {
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
 }
 
-// ── Types ────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────
 
 /**
  * The value stored/sent. 'auto' means "clear the override".
@@ -27,7 +30,26 @@ interface RadioOption {
   helper: string;
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+// ── Storage helpers ──────────────────────────────────
+
+async function loadVisibility(): Promise<Record<string, ProviderVisibilitySetting>> {
+  const result = await browser.storage.local.get('providerVisibility');
+  const raw = result['providerVisibility'];
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, ProviderVisibilitySetting>;
+  }
+  return {};
+}
+
+async function saveVisibility(map: Record<string, ProviderVisibilitySetting>): Promise<void> {
+  await browser.storage.local.set({ providerVisibility: map });
+}
+
+// ── Visibility storage setter (browser-polyfill-aware) ────────────
+
+const browserSaveVisibility = saveVisibility;
+
+// ── Helpers ──────────────────────────────────────────
 
 function planDisplayName(plan: ChatGPTPlan): string {
   switch (plan) {
@@ -74,7 +96,90 @@ function buildOptions(autoPlan: ChatGPTPlan): RadioOption[] {
   ];
 }
 
-// ── Component ────────────────────────────────────────────────
+// ── ProviderVisibilitySection ─────────────────────────
+
+function ProviderVisibilitySection() {
+  const [visibility, setVisibility] = useState<Record<string, ProviderVisibilitySetting>>({});
+
+  useEffect(() => {
+    void loadVisibility().then(setVisibility);
+  }, []);
+
+  // Live storage updates (Mac app may sync visibility while the page is open).
+  useEffect(() => {
+    const handler = (
+      changes: Record<string, browser.Storage.StorageChange>,
+      area: string,
+    ) => {
+      if (area !== 'local') return;
+      if ('providerVisibility' in changes) {
+        const next = changes['providerVisibility']?.newValue as
+          | Record<string, ProviderVisibilitySetting>
+          | undefined;
+        if (next) setVisibility(next);
+      }
+    };
+    browser.storage.onChanged.addListener(handler);
+    return () => browser.storage.onChanged.removeListener(handler);
+  }, []);
+
+  const handleToggle = (id: ProviderId, enabled: boolean) => {
+    // Optimistic update first, then async persist + bridge send.
+    const optimistic: Record<string, ProviderVisibilitySetting> = {
+      ...visibility,
+      [id]: { enabled, lastChangedAt: new Date().toISOString() },
+    };
+    setVisibility(optimistic);
+
+    void applyVisibilityToggle(id, enabled, visibility, browserSaveVisibility).then(setVisibility);
+  };
+
+  return (
+    <section class="options-section">
+      <div class="options-section__header">
+        <span class="options-section__icon options-section__icon--providers" aria-hidden="true" />
+        <h2 class="options-section__title">Provider Visibility</h2>
+      </div>
+      <p class="options-section__description">
+        Choose which providers appear in the popup and in the Tokenomics menu bar app.
+        Changes sync automatically when the Mac app is connected.
+      </p>
+
+      <div class="toggle-group">
+        {PROVIDERS.map((id) => {
+          const meta = PROVIDER_META[id];
+          const entry = visibility[id];
+          // Default to enabled when no entry exists.
+          const isEnabled = entry ? entry.enabled : true;
+
+          return (
+            <label key={id} class="toggle-row">
+              <span class={`toggle-row__icon toggle-row__icon--${id}`} aria-hidden="true" />
+              <span class="toggle-row__body">
+                <span class="toggle-row__label">{meta.displayName}</span>
+                <span class="toggle-row__helper">
+                  Hidden in menu bar and popup when off
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isEnabled}
+                class={`toggle-switch${isEnabled ? ' toggle-switch--on' : ''}`}
+                aria-label={`${isEnabled ? 'Hide' : 'Show'} ${meta.displayName}`}
+                onClick={() => handleToggle(id, !isEnabled)}
+              >
+                <span class="toggle-switch__thumb" />
+              </button>
+            </label>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Component ────────────────────────────────────────
 
 function Options() {
   const [autoPlan, setAutoPlan] = useState<ChatGPTPlan>('unknown');
@@ -142,6 +247,8 @@ function Options() {
         <h1 class="options-page__title">Settings</h1>
       </header>
 
+      <ProviderVisibilitySection />
+
       <section class="options-section">
         <div class="options-section__header">
           <span class="options-section__icon options-section__icon--chatgpt" aria-hidden="true" />
@@ -181,7 +288,7 @@ function Options() {
   );
 }
 
-// ── Entry ────────────────────────────────────────────────────
+// ── Entry ────────────────────────────────────────────
 
 applyTheme();
 window
