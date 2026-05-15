@@ -162,6 +162,26 @@ xcodebuild \
 [[ -d "$APP_PATH" ]] || die "Exported .app not found at $APP_PATH"
 
 # ---------------------------------------------------------------------------
+# Step 4.5: Verify embedded TokenomicsBridge binary
+# ---------------------------------------------------------------------------
+
+step "Verifying embedded TokenomicsBridge"
+
+BRIDGE_PATH="${APP_PATH}/Contents/Helpers/TokenomicsBridge"
+
+if [ ! -x "$BRIDGE_PATH" ]; then
+    die "TokenomicsBridge binary missing or not executable at $BRIDGE_PATH"
+fi
+
+codesign -dvvv "$BRIDGE_PATH" 2>&1 | grep -q "flags=.*runtime" \
+    || die "TokenomicsBridge missing hardened runtime — fix project.yml TokenomicsBridge target"
+
+codesign -d --entitlements - "$BRIDGE_PATH" 2>&1 | grep -q "group.com.robstout.tokenomics" \
+    || die "TokenomicsBridge missing App Group entitlement — fix TokenomicsBridge.entitlements"
+
+echo "  TokenomicsBridge verification passed"
+
+# ---------------------------------------------------------------------------
 # Step 5: Notarize the .app
 # ---------------------------------------------------------------------------
 
