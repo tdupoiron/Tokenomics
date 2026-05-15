@@ -480,6 +480,9 @@ struct PopoverView: View {
                     viewModel.showTextSize = true
                 }
 
+                // ── Providers ──
+                providerVisibilitySection
+
                 // ── Learn ──
                 sectionLabel("Learn")
 
@@ -629,6 +632,53 @@ struct PopoverView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 28)
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Provider Visibility Section
+
+    /// Per-provider toggle rows shown under the "Providers" settings header.
+    /// Toggling writes to SettingsService, which notifies MacSideStateExporter via
+    /// NotificationCenter — callers here don't need to reach the exporter directly.
+    @ViewBuilder
+    private var providerVisibilitySection: some View {
+        sectionLabel("Providers")
+
+        ForEach(ProviderId.allCases) { providerId in
+            providerVisibilityRow(for: providerId)
+            if providerId != ProviderId.allCases.last {
+                Divider().padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private func providerVisibilityRow(for providerId: ProviderId) -> some View {
+        let isEnabled = SettingsService.visibility(for: providerId)?.enabled ?? true
+        return HStack(spacing: 8) {
+            ProviderIcon(provider: providerId)
+                .frame(width: 16 * textSize.iconScale, height: 16 * textSize.iconScale)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(providerId.displayName)
+                    .scaledFont(.caption)
+                if !isEnabled {
+                    Text("Hidden in menu bar and popup")
+                        .scaledFont(.footnote)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { SettingsService.visibility(for: providerId)?.enabled ?? true },
+                set: { newValue in SettingsService.setVisibility(newValue, for: providerId) }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
     }
 
     // MARK: - Settings Helpers

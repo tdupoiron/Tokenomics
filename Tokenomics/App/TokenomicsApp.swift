@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os
 
 @main
 struct TokenomicsApp: App {
@@ -20,6 +21,11 @@ struct TokenomicsApp: App {
         MenuBarExtra {
             PopoverView(viewModel: viewModel, updaterService: updaterService)
                 .frame(width: popoverWidth)
+                .onAppear {
+                    // Wire the exporter reference once the popover is ready.
+                    // This is idempotent — assigning the same actor reference again is harmless.
+                    viewModel.macSideStateExporter = appDelegate.macSideStateExporter
+                }
         } label: {
             // First-launch routing + polling kickoff live inside MenuBarLabel so
             // the view's environment (openWindow) is available. startPolling()
@@ -90,9 +96,43 @@ struct OnboardingWindowRoot: View {
     }
 }
 
+// MARK: - Bridge notification names
+
+extension Notification.Name {
+    /// Posted by AppDelegate when the extension requests a native-provider refresh.
+    /// Observed by UsageViewModel on the main actor to trigger re-polling.
+    static let tokenomicsBridgeRefreshRequested = Notification.Name("tokenomicsBridgeRefreshRequested")
+
+    /// Posted by SettingsService.setVisibility after each provider visibility change.
+    /// Object is the ProviderId.rawValue String; userInfo contains the ProviderVisibilitySetting.
+    static let tokenomicsProviderVisibilityChanged = Notification.Name("tokenomicsProviderVisibilityChanged")
+}
+
+// MARK: - AppDelegate
+
 /// Handles tokenomics:// deep links via NSAppleEventManager instead of .onOpenURL,
 /// which fires incorrectly in MenuBarExtra and causes performance issues.
+///
+/// Also owns the two long-lived bridge services (WebCompanionService and
+/// MacSideStateExporter) so they survive across SwiftUI scene reconstructions.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    private static let log = Logger(subsystem: "com.robstout.tokenomics", category: "AppDelegate")
+
+    // MARK: - Bridge Services (app-lifetime singletons)
+
+    /// Watches ext-side.json for incoming web-companion data.
+    let webCompanionService = WebCompanionService(onRefreshRequested: {
+        // WebCompanionService fires this on an arbitrary actor. Post a notification
+        // so UsageViewModel (@MainActor) can pick it up safely on the main queue.
+        NotificationCenter.default.post(name: .tokenomicsBridgeRefreshRequested, object: nil)
+    })
+
+    /// Writes mac-side.json with native snapshots, settings, and pending commands.
+    let macSideStateExporter = MacSideStateExporter()
+
+    // MARK: - Lifecycle
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Belt-and-suspenders: ensure we start as a menu-bar agent even if SwiftUI
         // auto-restored an onboarding window from a previous session.
@@ -104,7 +144,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forEventClass: AEEventClass(kInternetEventClass),
             andEventID: AEEventID(kAEGetURL)
         )
+
+        installNMHManifests()
+        startBridgeServices()
     }
+
+    // MARK: - NMH Manifest Install
+
+    private func installNMHManifests() {
+        do {
+            let result = try NMHManifestInstaller.installAll()
+            Self.log.info("NMH manifest install: written=\(result.written) unchanged=\(result.unchanged) skipped=\(result.skipped) failed=\(result.failed)")
+        } catch {
+            // Never crash the app over a manifest install failure.
+            // Users without a Chromium browser simply won't get the bridge.
+            Self.log.error("NMH manifest install failed: \(error)")
+        }
+    }
+
+    // MARK: - Bridge Service Startup
+
+    private func startBridgeServices() {
+        Task {
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+            await macSideStateExporter.setMacAppVersion(version)
+
+            // Seed visibility from UserDefaults so the exporter's first write to
+            // mac-side.json reflects the user's saved settings immediately.
+            let savedVisibility = SettingsService.providerVisibility
+            for (key, setting) in savedVisibility {
+                await macSideStateExporter.setVisibility(setting, for: key)
+            }
+        }
+
+        Task {
+            await webCompanionService.startWatching()
+        }
+    }
+
+    // MARK: - URL Handler
 
     @objc private func handleGetURL(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
         guard let urlString = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
@@ -133,6 +211,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 }
+
+// MARK: - MenuBarLabel
 
 /// The menu bar label — shows ring + percentage for one provider.
 /// Smart mode picks the worst-of-N; pinned mode shows the user's choice.

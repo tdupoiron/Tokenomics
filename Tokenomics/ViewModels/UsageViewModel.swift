@@ -5,6 +5,18 @@ import Combine
 @MainActor
 final class UsageViewModel: ObservableObject {
 
+    // MARK: - Bridge services (injected from AppDelegate)
+    //
+    // UsageViewModel doesn't own these — AppDelegate does. We hold a weak reference
+    // via a setter called once at startup so the VM can push snapshots and commands
+    // without needing to reach back through the app delegate at call sites.
+
+    /// Set once by the app entry point after AppDelegate is ready.
+    var macSideStateExporter: MacSideStateExporter?
+
+    /// Notification observers for bridge wiring. Retained so they're cancelled on deinit.
+    private var bridgeObservers: [Any] = []
+
     // MARK: - Published State
 
     /// Per-provider state (connection, usage, errors)
@@ -267,6 +279,10 @@ final class UsageViewModel: ObservableObject {
         guard !pollingStarted else { return }
         pollingStarted = true
 
+        // Wire bridge notification observers once polling starts. This is the
+        // earliest point where the app delegate's services are fully initialized.
+        registerBridgeObservers()
+
         Task {
             // Initial detection
             await detectProviders()
@@ -290,6 +306,37 @@ final class UsageViewModel: ObservableObject {
             // Watch ~/.claude for activity to sleep/wake polling
             startActivityMonitor()
         }
+    }
+
+    /// Registers NotificationCenter observers that wire the bridge layer into
+    /// the VM without creating a retain cycle. Safe to call once; calling more
+    /// than once is a no-op because `pollingStarted` guards the caller.
+    private func registerBridgeObservers() {
+        // Extension requests a native re-poll → treat it the same as a user tapping Refresh.
+        let refreshObserver = NotificationCenter.default.addObserver(
+            forName: .tokenomicsBridgeRefreshRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refresh()
+        }
+
+        // SettingsService.setVisibility was called → propagate to MacSideStateExporter.
+        let visibilityObserver = NotificationCenter.default.addObserver(
+            forName: .tokenomicsProviderVisibilityChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let providerIdRaw = note.object as? String,
+                  let setting = note.userInfo?["setting"] as? ProviderVisibilitySetting,
+                  let exporter = self.macSideStateExporter else { return }
+            Task {
+                await exporter.setVisibility(setting, for: providerIdRaw)
+            }
+        }
+
+        bridgeObservers = [refreshObserver, visibilityObserver]
     }
 
     private func startActivityMonitor() {
@@ -317,6 +364,12 @@ final class UsageViewModel: ObservableObject {
                 await pollingService.markFetched(id)
             }
             await fetchAllProviders()
+
+            // Tell the extension to re-poll its web-fetched providers on its
+            // next heartbeat (~60s). Fire-and-forget — native refresh is already done.
+            if let exporter = macSideStateExporter {
+                await exporter.enqueueCommand(BridgeCommand(kind: "refreshWebProviders"))
+            }
         }
     }
 
@@ -538,6 +591,36 @@ final class UsageViewModel: ObservableObject {
         pushToWidgets()
     }
 
+    // MARK: - Bridge Snapshot Conversion
+
+    /// Converts a native `ProviderUsageSnapshot` into the wire-format `BridgeSnapshot`
+    /// that MacSideStateExporter writes to mac-side.json.
+    ///
+    /// `WindowUsage.utilization` is 0–100 (percentage); `BridgeWindow.utilization` is
+    /// 0–1 (fraction). The division normalises the value for the extension.
+    private func makeBridgeSnapshot(from snapshot: ProviderUsageSnapshot, provider: ProviderId) -> BridgeSnapshot {
+        func makeBridgeWindow(_ window: WindowUsage) -> BridgeWindow {
+            BridgeWindow(
+                label: window.label,
+                utilization: window.utilization / 100.0,
+                resetsAt: window.resetsAt,
+                windowDurationSec: window.windowDuration,
+                sublabelOverride: window.sublabelOverride
+            )
+        }
+
+        return BridgeSnapshot(
+            provider: provider.rawValue,
+            capturedAt: Date(),
+            estimated: nil,
+            shortWindow: makeBridgeWindow(snapshot.shortWindow),
+            longWindow: snapshot.longWindow.map { makeBridgeWindow($0) },
+            planLabel: snapshot.planLabel
+        )
+    }
+
+    // MARK: - Widget Push
+
     /// Push current usage data to the shared App Group store for WidgetKit.
     /// Uses visibleProviders so the widget respects the user's sort order and hidden providers.
     private func pushToWidgets() {
@@ -578,6 +661,14 @@ final class UsageViewModel: ObservableObject {
                 snapshot: snapshot,
                 connection: currentState.connection
             )
+
+            // Push a fresh bridge snapshot alongside the widget write.
+            // chatgpt is web-companion-only; native pollers never produce it.
+            if id != .chatgpt, let exporter = macSideStateExporter {
+                let bridgeSnap = makeBridgeSnapshot(from: snapshot, provider: id)
+                await exporter.setNativeSnapshot(bridgeSnap)
+            }
+
             return ProviderState(
                 connection: currentState.connection,
                 usage: snapshot,
