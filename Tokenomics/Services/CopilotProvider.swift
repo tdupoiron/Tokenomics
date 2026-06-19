@@ -8,7 +8,7 @@ import os
 ///
 /// API: `GET https://api.github.com/copilot_internal/user` — returns the user's
 /// plan, quota reset date, and per-quota snapshots. We surface the
-/// `quota_snapshots.premium_interactions` metric (the premium request budget).
+/// `quota_snapshots.premium_interactions` metric (the AI credits budget).
 actor CopilotProvider: UsageProvider {
     let id = ProviderId.copilot
     let pollInterval: TimeInterval = 300 // 5 min — lightweight internal endpoint
@@ -141,7 +141,7 @@ actor CopilotProvider: UsageProvider {
     private func premiumWindow(_ snapshot: CopilotUserInfo.QuotaSnapshot?,
                                resetsAt: Date,
                                windowDuration: TimeInterval) -> WindowUsage {
-        let label = "Premium requests"
+        let label = "AI credits"
 
         guard let snapshot, !(snapshot.unlimited ?? false) else {
             return WindowUsage(
