@@ -32,6 +32,16 @@ struct UsageBarView: View {
         min(max(pace, 0), 1)
     }
 
+    private var utilizationColor: Color {
+        if utilization >= 90 {
+            return Color(red: 210/255, green: 40/255,  blue: 40/255)  // red
+        } else if utilization >= 75 {
+            return Color(red: 160/255, green: 80/255,  blue: 20/255)  // brown
+        } else {
+            return Color(red: 20/255,  green: 100/255, blue: 200/255) // blue
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -43,7 +53,7 @@ struct UsageBarView: View {
                     .scaledFont(.title2)
                     .fontWeight(.semibold)
                     .monospacedDigit()
-                    .foregroundStyle(Tokens.DynamicColor.accent)
+                    .foregroundStyle(utilizationColor)
             }
 
             // Progress bar with pace indicator
@@ -58,7 +68,7 @@ struct UsageBarView: View {
 
                     // Fill
                     Capsule()
-                        .fill(Tokens.DynamicColor.accent)
+                        .fill(utilizationColor)
                         .frame(width: barWidth * animatedValue, height: Self.barHeight)
                         .animation(.easeOut(duration: 0.5), value: animatedValue)
 
